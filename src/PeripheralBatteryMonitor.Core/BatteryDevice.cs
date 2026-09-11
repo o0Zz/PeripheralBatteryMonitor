@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using Windows.Devices.Enumeration;
 using PeripheralBatteryMonitor.Contracts;
+using PeripheralBatteryMonitor.Diagnostics;
 using PeripheralBatteryMonitor.Providers;
 
 namespace PeripheralBatteryMonitor
@@ -110,14 +110,14 @@ namespace PeripheralBatteryMonitor
                     batteryLevel = level.Value;
                     boundProvider = provider;
                     lastReadSucceeded = true;
-                    Debug.WriteLine("[Battery] '" + deviceName + "' <- " + provider.GetType().Name + " = " + level.Value + "%");
+                    Log.Write("Battery", Describe(level.Value, provider));
                     return;
                 }
             }
 
                 //Nothing produced a value this tick -> keep the last known level (-1 = never read).
             lastReadSucceeded = false;
-            Debug.WriteLine("[Battery] '" + deviceName + "' <- no provider produced a value (transport=" + transport + ", level=" + batteryLevel + ")");
+            Log.Write("Battery", Describe(null, null));
         }
 
         /// <summary>
@@ -128,6 +128,23 @@ namespace PeripheralBatteryMonitor
         /// drawer and its last reading keeps dragging the icon down, say "disconnected" for a
         /// live one and it vanishes from the tray.
         /// </summary>
+        /// <summary>
+        /// One line carrying everything worth knowing about this device at this moment. Both
+        /// outcomes of a poll go through it, so a log reader can follow one device down the
+        /// file and see level, liveness and which provider answered change together.
+        ///
+        /// <see cref="IsConnected"/> is safe to call here: it is a property-bag read and, at
+        /// most, a bound provider's no-I/O link check.
+        /// </summary>
+        private string Describe(int? reading, IBatteryProvider provider)
+        {
+            return "'" + deviceName + "'"
+                + " transport=" + transport
+                + " level=" + (reading.HasValue ? reading.Value.ToString() + "%" : "none (holding " + batteryLevel + ")")
+                + " connected=" + IsConnected()
+                + " provider=" + (provider != null ? provider.GetType().Name : GetBoundProviderName());
+        }
+
         public bool IsConnected()
         {
                 //1. The provider actually BOUND to this device, when it maintains a live link
@@ -189,6 +206,17 @@ namespace PeripheralBatteryMonitor
         public DateTime GetLastUpdatedTime()
         {
             return lastUpdatedTime;
+        }
+
+        /// <summary>
+        /// Which provider last produced a reading for this device, for the diagnostic report.
+        /// "which one answered" is the single most useful fact about a device that reads
+        /// wrong, and it is otherwise invisible from outside.
+        /// </summary>
+        public string GetBoundProviderName()
+        {
+            IBatteryProvider provider = boundProvider;
+            return provider == null ? "(none)" : provider.GetType().Name;
         }
 
         /* ---- IBatteryDeviceContext (data providers read/write) ---- */

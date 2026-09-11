@@ -84,20 +84,17 @@ namespace PeripheralBatteryMonitor
 
             HashSet<string> presentIds = new HashSet<string>();
 
-            foreach (HidInterfaceInfo info in HidDeviceSource.Discover())
+            foreach (HidDiscoveredDevice found in HidDeviceSource.Discover())
             {
-                string id = HidDeviceSource.GetDeviceId(info);
-                presentIds.Add(id);
+                presentIds.Add(found.Id);
 
-                if (deviceDict.ContainsKey(id))
+                if (deviceDict.ContainsKey(found.Id))
                     continue;
 
-                BatteryDevice device = new BatteryDevice(id,
-                    HidDeviceSource.GetDeviceName(info),
-                    DeviceTransport.UsbHid,
-                    HidDeviceSource.GetProperties(info));
+                BatteryDevice device = new BatteryDevice(found.Id, found.Name,
+                    DeviceTransport.UsbHid, found.Properties);
 
-                if (deviceDict.TryAdd(id, device))
+                if (deviceDict.TryAdd(found.Id, device))
                     this.deviceNotification.OnNewDevice(device);
             }
 

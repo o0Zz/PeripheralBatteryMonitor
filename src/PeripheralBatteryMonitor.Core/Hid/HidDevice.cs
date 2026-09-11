@@ -1,8 +1,9 @@
 using System;
-using System.Diagnostics;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
+using PeripheralBatteryMonitor.Diagnostics;
 
 namespace PeripheralBatteryMonitor.Hid
 {
@@ -100,11 +101,49 @@ namespace PeripheralBatteryMonitor.Hid
 
             if (h.IsInvalid)
             {
+                    //Captured before anything else can overwrite the thread's last error.
+                int error = Marshal.GetLastWin32Error();
+                LogOpenFailureOnce(info.Path, error, desiredAccess);
                 h.Dispose();
                 return null;
             }
 
+            ForgetOpenFailure(info.Path);
             return new HidDevice(h, info, overlapped);
+        }
+
+            //The last error each path failed with, so a handle that keeps failing the same
+            //way says so once instead of once per poll tick for as long as the app runs. A
+            //*change* is the event worth recording -- including the change to success, which
+            //is why the entry is cleared on a good open.
+        private static readonly Dictionary<string, int> lastOpenError = new Dictionary<string, int>();
+
+        private static void LogOpenFailureOnce(string path, int error, uint desiredAccess)
+        {
+            lock (lastOpenError)
+            {
+                int previous;
+                if (lastOpenError.TryGetValue(path, out previous) && previous == error)
+                    return;
+                lastOpenError[path] = error;
+            }
+
+                //Worth naming the code rather than just failing: ERROR_ACCESS_DENIED (5) means
+                //another process holds the collection exclusively -- vendor software such as
+                //G HUB does this -- while ERROR_FILE_NOT_FOUND (2) means the dongle went away
+                //between enumeration and here. The two need opposite advice, and neither is
+                //visible from "no battery reading".
+            Log.Write("Hid", "open failed (error " + error
+                + ", access 0x" + desiredAccess.ToString("X") + ") on " + path);
+        }
+
+        private static void ForgetOpenFailure(string path)
+        {
+            lock (lastOpenError)
+            {
+                if (lastOpenError.Remove(path))
+                    Log.Write("Hid", "open succeeded again on " + path);
+            }
         }
 
         /// <summary>
@@ -257,7 +296,7 @@ namespace PeripheralBatteryMonitor.Hid
         {
             if (overlapped)
                 return true;
-            Debug.WriteLine("[Hid] " + operation + " needs a handle from Open(), not OpenForReportRequests()/OpenForFeatureReports()");
+            Log.Write("Hid", operation + " needs a handle from Open(), not OpenForReportRequests()/OpenForFeatureReports()");
             return false;
         }
 

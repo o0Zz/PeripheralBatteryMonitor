@@ -1,6 +1,6 @@
 using System;
-using System.Diagnostics;
 using PeripheralBatteryMonitor.Contracts;
+using PeripheralBatteryMonitor.Diagnostics;
 using PeripheralBatteryMonitor.Hid;
 
 namespace PeripheralBatteryMonitor.Providers.Razer
@@ -97,7 +97,7 @@ namespace PeripheralBatteryMonitor.Providers.Razer
             {
                     //Raw HID access fails for plenty of benign reasons (dongle yanked
                     //mid-transaction, another process holding the collection). No reading.
-                Debug.WriteLine("[Razer] read failed on '" + ctx.DeviceName + "': " + e.Message);
+                Log.Write("Razer", "read failed on '" + ctx.DeviceName + "': " + e.Message);
                 return null;
             }
         }
@@ -120,7 +120,7 @@ namespace PeripheralBatteryMonitor.Providers.Razer
             if (percent > 100)
                 percent = 100;
 
-            Debug.WriteLine("[Razer] '" + deviceName + "' raw " + raw + "/255 -> " + percent + "%");
+            Log.Write("Razer", "'" + deviceName + "' raw " + raw + "/255 -> " + percent + "%");
             return percent;
         }
 

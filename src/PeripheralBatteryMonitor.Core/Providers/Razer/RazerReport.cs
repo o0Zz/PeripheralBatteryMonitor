@@ -1,6 +1,6 @@
 using System;
-using System.Diagnostics;
 using System.Threading;
+using PeripheralBatteryMonitor.Diagnostics;
 using PeripheralBatteryMonitor.Hid;
 
 namespace PeripheralBatteryMonitor.Providers.Razer
@@ -104,7 +104,7 @@ namespace PeripheralBatteryMonitor.Providers.Razer
 
                 if (status != STATUS_SUCCESSFUL)
                 {
-                    Debug.WriteLine("[Razer] class 0x" + commandClass.ToString("X2") + " id 0x"
+                    Log.Write("Razer", "class 0x" + commandClass.ToString("X2") + " id 0x"
                         + commandId.ToString("X2") + " -> status 0x" + status.ToString("X2")
                         + " (" + StatusName(status) + ")");
                     return null;
@@ -117,13 +117,13 @@ namespace PeripheralBatteryMonitor.Providers.Razer
                     reply[PAYLOAD + OFF_COMMAND_CLASS] != commandClass ||
                     reply[PAYLOAD + OFF_COMMAND_ID] != commandId)
                 {
-                    Debug.WriteLine("[Razer] reply did not echo the request -- ignored");
+                    Log.Write("Razer", "reply did not echo the request -- ignored");
                     return null;
                 }
 
                 if (reply[PAYLOAD + OFF_CRC] != Checksum(reply))
                 {
-                    Debug.WriteLine("[Razer] reply failed its checksum -- ignored");
+                    Log.Write("Razer", "reply failed its checksum -- ignored");
                     return null;
                 }
 

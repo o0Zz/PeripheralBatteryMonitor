@@ -108,6 +108,11 @@ When the application is running, right-click the battery icon in the system tray
   - Check whether *Show one tray icon per device* is enabled
     > The application allows only one running instance. Multiple live icons are expected only when the per-device icon setting is enabled; after an abnormal exit, a stale icon disappears when Windows refreshes the tray area.
 
+- **Your device isn't listed, or reads the wrong level**
+  - Open the log: tray icon → right-click → *Open log folder*
+  - Attach `log.txt` to your [issue](https://github.com/o0Zz/PeripheralBatteryMonitor/issues)
+    > The application always writes `%LOCALAPPDATA%\PeripheralBatteryMonitor\log.txt`, so the log for the session you just had is already there — there's nothing to switch on first. It records every HID interface on the machine and which ones the application recognised, which is exactly what's needed to add support for a device it can't see. The file rolls at 1 MB and keeps one previous copy. It contains device names and hardware ids, so skim it before posting; you can delete it at any time, including while the application is running.
+
 ## Build from source
 
 Requires only the [.NET SDK](https://dotnet.microsoft.com/download) (8.0 or newer). The solution targets .NET Framework 4.8, but both projects are SDK-style and the reference assemblies come from a NuGet package, so no Visual Studio, no targeting pack and no `nuget.exe` are needed.

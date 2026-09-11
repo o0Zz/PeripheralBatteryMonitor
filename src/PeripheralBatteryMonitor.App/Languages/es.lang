@@ -1,4 +1,4 @@
-# PeripheralBatteryMonitor — Español.
+﻿# PeripheralBatteryMonitor — Español.
 # Las líneas que falten aquí se muestran en inglés (véase en.lang).
 
 @name = Español
@@ -8,6 +8,7 @@ app.name = Peripheral Battery Monitor
 # ---- área de notificación ----
 tray.refresh = Actualizar
 tray.restartBluetooth = Reiniciar Bluetooth
+tray.openLog = Abrir la carpeta del registro
 tray.settings = Configuración
 tray.exit = Salir
 
@@ -66,7 +67,7 @@ about.supported = Dispositivos compatibles
 about.device.ble = Bluetooth Low Energy — auriculares, pulseras de actividad, ratones y teclados BLE
 about.device.classic = Bluetooth Classic / BR-EDR — auriculares, AirPods en Windows
 about.device.apple = Apple Magic Mouse, Trackpad y Keyboard
-about.device.logitech = Dispositivos Logitech LIGHTSPEED con su propio adaptador USB
+about.device.logitech = Dispositivos Logitech LIGHTSPEED y Unifying — con su propio receptor USB o emparejados a un receptor
 about.device.steelseries = Auriculares inalámbricos SteelSeries Arctis Nova 5 / 7
 about.device.razer = Ratones inalámbricos Razer con adaptador HyperSpeed o Bluetooth
 about.author = por o0Zz — {0}

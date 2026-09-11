@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using PeripheralBatteryMonitor.Contracts;
+using PeripheralBatteryMonitor.Diagnostics;
 using PeripheralBatteryMonitor.Hid;
 using PeripheralBatteryMonitor.Providers;
 
@@ -17,6 +17,11 @@ namespace PeripheralBatteryMonitor
     /// vendor ids) to re-run on every poll tick, which is also what gives plug/unplug
     /// handling for free.
     ///
+    /// One interface is *usually* one device, and was always one device until receivers were
+    /// supported. A spec may now carry an <see cref="IHidDeviceExpander"/>, in which case the
+    /// interface stands for however many peripherals are actually paired to it -- see
+    /// <see cref="HidDiscoveredDevice"/>.
+    ///
     /// <b>internal, unlike the other three types at the project root.</b> Those three --
     /// <see cref="BatteryDevice"/>, <see cref="DeviceManager"/> and
     /// <see cref="IDeviceNotification"/> -- are exactly what the App project references, so
@@ -26,59 +31,79 @@ namespace PeripheralBatteryMonitor
     /// </summary>
     internal static class HidDeviceSource
     {
-        /// <summary>Every present HID interface that a registered spec claims. May be empty.</summary>
-        public static List<HidInterfaceInfo> Discover()
+        /// <summary>
+        /// Every device behind a present HID interface that a registered spec claims. May be
+        /// empty.
+        /// </summary>
+        public static List<HidDiscoveredDevice> Discover()
         {
-            List<HidInterfaceInfo> matched = new List<HidInterfaceInfo>();
+            List<HidDiscoveredDevice> found = new List<HidDiscoveredDevice>();
 
             ICollection<ushort> vendorIds = HidDeviceSpecRegistry.GetVendorIds();
             if (vendorIds.Count == 0)
-                return matched;
+                return found;
 
             foreach (HidInterfaceInfo info in HidInterfaceEnumerator.Enumerate(vendorIds))
             {
-                if (HidDeviceSpecRegistry.Match(info) != null)
-                    matched.Add(info);
+                HidDeviceSpec spec = HidDeviceSpecRegistry.Match(info);
+
+                LogDecisionOnce(info, spec);
+
+                if (spec == null)
+                    continue;
+
+                if (spec.Expander != null)
+                {
+                        //A receiver: the interface stands for whatever is paired to it, and
+                        //possibly for nothing at all.
+                    List<HidDiscoveredDevice> children = spec.Expander.Expand(info, spec);
+                    if (children != null)
+                        found.AddRange(children);
+                    continue;
+                }
+
+                found.Add(ProviderHid.Describe(info, GetDeviceName(info, spec), null));
             }
 
-            return matched;
+            return found;
         }
+
+            //Interfaces this has already had its say about, so a permanently unclaimed
+            //collection writes one line rather than one line every poll tick for as long as
+            //the app runs. Bounded by the number of HID interfaces of the registered vendors,
+            //which is tens.
+        private static readonly HashSet<string> loggedInterfaces = new HashSet<string>();
 
         /// <summary>
-        /// Key for the device dictionary. The interface path plays the same role as
-        /// <c>DeviceInformation.Id</c> does for Bluetooth: opaque, and unique per device per
-        /// USB port. Moving the dongle to another port therefore reads as a different device,
-        /// which is the same behaviour as re-pairing a Bluetooth device.
+        /// Name what discovery decided about one interface, once.
+        ///
+        /// An interface no spec claims is invisible to the entire app: no
+        /// <see cref="BatteryDevice"/>, nothing to refresh, nothing in the tray and nothing
+        /// in the Info window. That is the exact shape of every "my device does not show up"
+        /// report, and until this line existed there was no way to tell it apart from a
+        /// device that was found and simply would not answer.
+        ///
+        /// This costs nothing extra to collect: <c>Enumerate</c> is pre-filtered by the
+        /// *vendor* ids the specs registered, not by the specs themselves, so the rejected
+        /// interfaces of a registered vendor are already in hand and being thrown away.
         /// </summary>
-        public static string GetDeviceId(HidInterfaceInfo info)
+        private static void LogDecisionOnce(HidInterfaceInfo info, HidDeviceSpec spec)
         {
-            return info.Path;
+            lock (loggedInterfaces)
+            {
+                if (!loggedInterfaces.Add(info.Path))
+                    return;
+            }
+
+            Log.Write("Discovery", (spec != null ? "claimed by '" + spec.FallbackName + "': " : "claimed by no spec:  ")
+                + info + "  " + info.Path);
         }
 
-        public static string GetDeviceName(HidInterfaceInfo info)
+        private static string GetDeviceName(HidInterfaceInfo info, HidDeviceSpec spec)
         {
-            HidDeviceSpec spec = HidDeviceSpecRegistry.Match(info);
             if (spec != null)
                 return spec.NameFor(info);
             return String.IsNullOrWhiteSpace(info.Product) ? "Unknown HID device" : info.Product.Trim();
-        }
-
-        /// <summary>
-        /// Seed the device's property bag with everything a provider needs to reopen this
-        /// exact interface, so reading a battery never has to re-enumerate the HID stack.
-        /// </summary>
-        public static Dictionary<string, object> GetProperties(HidInterfaceInfo info)
-        {
-            Dictionary<string, object> properties = new Dictionary<string, object>();
-            properties[DeviceProperties.PROP_HID_PATH] = info.Path;
-            properties[DeviceProperties.PROP_HID_VENDOR_ID] = (int)info.VendorId;
-            properties[DeviceProperties.PROP_HID_PRODUCT_ID] = (int)info.ProductId;
-            properties[DeviceProperties.PROP_HID_USAGE_PAGE] = (int)info.UsagePage;
-            properties[DeviceProperties.PROP_HID_USAGE] = (int)info.Usage;
-            properties[DeviceProperties.PROP_HID_INPUT_REPORT_LENGTH] = info.InputReportByteLength;
-            properties[DeviceProperties.PROP_HID_OUTPUT_REPORT_LENGTH] = info.OutputReportByteLength;
-            properties[DeviceProperties.PROP_HID_FEATURE_REPORT_LENGTH] = info.FeatureReportByteLength;
-            return properties;
         }
     }
 }

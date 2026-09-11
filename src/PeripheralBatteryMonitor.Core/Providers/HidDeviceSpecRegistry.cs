@@ -23,9 +23,15 @@ namespace PeripheralBatteryMonitor.Providers
 
         static HidDeviceSpecRegistry()
         {
-            Register(LogitechBatteryProvider.HidSpec);      //Logitech LIGHTSPEED (PRO X Wireless headset)
-            Register(SteelSeriesBatteryProvider.HidSpec);   //SteelSeries Arctis Nova 5 / 7 dongles
-            Register(RazerBatteryProvider.HidSpec);         //Razer wireless mice (matched by the 91-byte feature report)
+                //Receivers first. They match the same collection as a direct device and are
+                //told apart only by product id, so the moment either id list is widened the
+                //order is what stops a receiver being taken for a single device -- which
+                //would hide everything paired to it behind one unreadable entry.
+            Register(LogitechBatteryProvider.ReceiverHidSpec);   //Logitech LIGHTSPEED / Unifying receivers
+            Register(LogitechBatteryProvider.HidSpec);           //Logitech LIGHTSPEED, HID++ framing (PRO X Wireless headset)
+            Register(LogitechBatteryProvider.CenturionHidSpec);  //Logitech LIGHTSPEED, Centurion framing (PRO X 2 headset)
+            Register(SteelSeriesBatteryProvider.HidSpec);        //SteelSeries Arctis Nova 5 / 7 dongles
+            Register(RazerBatteryProvider.HidSpec);              //Razer wireless mice (matched by the 91-byte feature report)
         }
 
         /// <summary>Add a spec. Do this before the first scan for it to take effect.</summary>

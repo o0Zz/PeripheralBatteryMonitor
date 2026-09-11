@@ -1,4 +1,4 @@
-# PeripheralBatteryMonitor — Français.
+﻿# PeripheralBatteryMonitor — Français.
 # Toute ligne absente ici est affichée en anglais (voir en.lang).
 
 @name = Français
@@ -8,6 +8,7 @@ app.name = Peripheral Battery Monitor
 # ---- icône de la zone de notification ----
 tray.refresh = Actualiser
 tray.restartBluetooth = Redémarrer le Bluetooth
+tray.openLog = Ouvrir le dossier du journal
 tray.settings = Paramètres
 tray.exit = Quitter
 
@@ -66,7 +67,7 @@ about.supported = Périphériques pris en charge
 about.device.ble = Bluetooth Low Energy — écouteurs, bracelets connectés, souris et claviers BLE
 about.device.classic = Bluetooth Classic / BR-EDR — casques, AirPods sous Windows
 about.device.apple = Apple Magic Mouse, Trackpad et Keyboard
-about.device.logitech = Périphériques Logitech LIGHTSPEED sur leur propre dongle USB
+about.device.logitech = Périphériques Logitech LIGHTSPEED et Unifying — sur leur propre dongle ou associés à un récepteur
 about.device.steelseries = Casques sans fil SteelSeries Arctis Nova 5 / 7
 about.device.razer = Souris sans fil Razer sur dongle HyperSpeed ou Bluetooth
 about.author = par o0Zz — {0}

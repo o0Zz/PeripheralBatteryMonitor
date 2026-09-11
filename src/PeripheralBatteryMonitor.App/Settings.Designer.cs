@@ -22,6 +22,7 @@
             this.refreshToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.restartBluetoothToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.settingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.openLogToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.separatorDeviceActions = new System.Windows.Forms.ToolStripSeparator();
             this.separatorExit = new System.Windows.Forms.ToolStripSeparator();
             this.exitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -78,6 +79,7 @@
             this.contextMenuStrip.ImageScalingSize = new System.Drawing.Size(20, 20);
             this.contextMenuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.settingsToolStripMenuItem,
+            this.openLogToolStripMenuItem,
             this.separatorDeviceActions,
             this.restartBluetoothToolStripMenuItem,
             this.refreshToolStripMenuItem,
@@ -110,6 +112,17 @@
             this.settingsToolStripMenuItem.Name = "settingsToolStripMenuItem";
             this.settingsToolStripMenuItem.Text = "Settings";
             this.settingsToolStripMenuItem.Click += new System.EventHandler(this.settingsToolStripMenuItem_Click);
+            //
+            // openLogToolStripMenuItem
+            //
+            // The log is always being written, so this only has to reveal it. Reachable in one
+            // click and not hidden behind a modifier: the person who needs it is being talked
+            // through it by someone who cannot see their screen. It sits with Settings rather
+            // than with the device actions below -- it opens a folder, it does not touch a
+            // device.
+            this.openLogToolStripMenuItem.Name = "openLogToolStripMenuItem";
+            this.openLogToolStripMenuItem.Text = "Open log folder";
+            this.openLogToolStripMenuItem.Click += new System.EventHandler(this.openLogToolStripMenuItem_Click);
             //
             // separatorDeviceActions
             //
@@ -521,6 +534,7 @@
         private System.Windows.Forms.ToolStripMenuItem refreshToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem restartBluetoothToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem settingsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem openLogToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator separatorDeviceActions;
         private System.Windows.Forms.ToolStripSeparator separatorExit;
         private System.Windows.Forms.ToolStripMenuItem exitToolStripMenuItem;

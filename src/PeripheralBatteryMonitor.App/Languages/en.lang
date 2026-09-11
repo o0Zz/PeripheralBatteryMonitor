@@ -1,4 +1,4 @@
-# PeripheralBatteryMonitor — English. The master file: every other language falls
+﻿# PeripheralBatteryMonitor — English. The master file: every other language falls
 # back to this one key by key, so a line missing elsewhere shows in English rather
 # than showing its key.
 #
@@ -13,6 +13,7 @@ app.name = Peripheral Battery Monitor
 # ---- tray icon ----
 tray.refresh = Refresh
 tray.restartBluetooth = Restart Bluetooth
+tray.openLog = Open log folder
 tray.settings = Settings
 tray.exit = Exit
 
@@ -73,7 +74,7 @@ about.supported = Supported devices
 about.device.ble = Bluetooth Low Energy — earbuds, fitness bands, BLE mice and keyboards
 about.device.classic = Bluetooth Classic / BR-EDR — headsets, AirPods on Windows
 about.device.apple = Apple Magic Mouse, Trackpad and Keyboard
-about.device.logitech = Logitech LIGHTSPEED devices on their own USB dongle
+about.device.logitech = Logitech LIGHTSPEED and Unifying devices — on their own dongle or paired to a receiver
 about.device.steelseries = SteelSeries Arctis Nova 5 / 7 wireless headsets
 about.device.razer = Razer wireless mice on a HyperSpeed dongle or Bluetooth
 # {0} the project URL

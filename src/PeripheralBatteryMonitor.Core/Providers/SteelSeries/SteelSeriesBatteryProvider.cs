@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using PeripheralBatteryMonitor.Contracts;
+using PeripheralBatteryMonitor.Diagnostics;
 using PeripheralBatteryMonitor.Hid;
 
 namespace PeripheralBatteryMonitor.Providers.SteelSeries
@@ -118,7 +119,7 @@ namespace PeripheralBatteryMonitor.Providers.SteelSeries
             {
                     //Raw HID access fails for plenty of benign reasons (dongle yanked
                     //mid-transaction, another process holding the collection). No reading.
-                Debug.WriteLine("[SteelSeries] read failed on '" + ctx.DeviceName + "': " + e.Message);
+                Log.Write("SteelSeries", "read failed on '" + ctx.DeviceName + "': " + e.Message);
                 return null;
             }
         }

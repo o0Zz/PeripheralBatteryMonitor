@@ -1,49 +1,34 @@
 using System;
 using System.Diagnostics;
+using PeripheralBatteryMonitor.Diagnostics;
 using PeripheralBatteryMonitor.Hid;
 
 namespace PeripheralBatteryMonitor.Providers.Logitech
 {
     /// <summary>
-    /// Logitech HID++ 2.0 request/response framing over one HID interface.
+    /// Logitech HID++ 2.0 request/response framing over one HID interface -- the long-report
+    /// framing, which is what LIGHTSPEED mice, keyboards and the PRO X Wireless headset use.
+    /// <see cref="CenturionTransport"/> is the other framing, for the newer headsets.
     ///
     /// A request is an output report laid out as
     /// <c>[reportId][deviceIndex][featureIndex][functionId&lt;&lt;4 | softwareId][params...]</c>
     /// and the answer arrives as an input report echoing deviceIndex / featureIndex /
     /// functionId, so a reply can be told apart from the unsolicited notifications the device
-    /// also sends on the same interface.
+    /// also sends on the same interface. That layout is already what
+    /// <see cref="IHidppTransport"/> promises its callers, so this transport normalises
+    /// nothing -- it hands the wire frame straight back.
     ///
     /// Features are addressed by *index*, and the index of a given feature id differs per
     /// device, so it must be looked up at runtime through the root feature
     /// (<see cref="GetFeatureIndex"/>) rather than hardcoded.
     /// </summary>
-    public class HidppTransport : IDisposable
+    internal class HidppTransport : IHidppTransport
     {
-            //Long report: 20 bytes total (1 id + 19). Modern Logitech gaming gear exposes only
-            //this one; the 7-byte short report (0x10) is a Unifying-era thing and writing it to
-            //a collection that doesn't declare it fails outright.
-        public const byte REPORT_LONG = 0x11;
-
-            //Addresses the device sitting behind its own receiver, as opposed to indexes
-            //1..6 which address devices paired to a multi-device Unifying receiver.
-        public const byte DEVICE_INDEX_DIRECT = 0xFF;
-
-        public const byte FEATURE_ROOT = 0x0000;
-
-            //Any nonzero value; it is echoed back and distinguishes our traffic from
-            //another application's (G HUB may be talking to the same device).
-        private const byte SOFTWARE_ID = 0x0E;
-
-            //A feature index of 0xFF in a reply marks a HID++ 2.0 error; 0x8F is the
-            //HID++ 1.0 equivalent. Both mean "no value", never "index 255".
-        private const byte ERROR_HIDPP20 = 0xFF;
-        private const byte ERROR_HIDPP10 = 0x8F;
-
         private const int MAX_FRAMES_PER_REQUEST = 8;
 
-            //Arbitrary byte echoed back by the root feature's ping, which is what makes a
-            //pong tell-apart-able from any other reply.
-        private const byte PING_MAGIC = 0xAA;
+            //How much of a frame to hex-log. A long frame is 20 bytes and the payload every
+            //decoder reads ends well inside that.
+        private const int LOG_BYTES = 20;
 
         private HidDevice device;
 
@@ -58,8 +43,25 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         /// </summary>
         public static HidppTransport Open(HidInterfaceInfo info)
         {
-            if (info == null || info.OutputReportByteLength < 20 || info.InputReportByteLength < 20)
+            if (info == null)
                 return null;
+
+                //Frame size is a property of the framing, not of the handle, so this states
+                //its own minimum rather than deferring to a shared guard: 20 here, 64 for a
+                //Centurion frame. A collection too small for the framing cannot carry it.
+                //
+                //The 7-byte short report (0x10) is deliberately not a fallback. On Windows a
+                //receiver's short and long collections are separate device paths and a reply
+                //to a short request arrives on the *other* handle, so supporting it is a
+                //two-handle transport rather than a smaller buffer -- and nothing here needs
+                //it: HID++ 2.0 feature calls work over the long collection at every device
+                //index. Also, the PRO X collection rejects report 0x10 outright.
+            if (info.OutputReportByteLength < Hidpp.LONG_FRAME_SIZE || info.InputReportByteLength < Hidpp.LONG_FRAME_SIZE)
+            {
+                Log.Write("HID++", "refusing " + info + ": reports smaller than a "
+                    + Hidpp.LONG_FRAME_SIZE + "-byte long frame");
+                return null;
+            }
 
             HidDevice hid = HidDevice.Open(info);
             if (hid == null)
@@ -75,15 +77,21 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         public byte[] Request(byte deviceIndex, byte featureIndex, byte functionId, byte[] parameters, int timeoutMs)
         {
             byte[] request = new byte[device.OutputReportByteLength];
-            request[0] = REPORT_LONG;
+            request[0] = Hidpp.REPORT_LONG;
             request[1] = deviceIndex;
             request[2] = featureIndex;
-            request[3] = (byte)((functionId << 4) | SOFTWARE_ID);
+            request[3] = (byte)((functionId << 4) | Hidpp.SOFTWARE_ID);
             if (parameters != null)
             {
                 for (int i = 0; i < parameters.Length && (4 + i) < request.Length; i++)
                     request[4 + i] = parameters[i];
             }
+
+                //Both directions, always. This is the only record of a vendor conversation
+                //that exists once the app is on someone else's machine -- the person with the
+                //hardware is not the person who can read the code. LOG_BYTES rather than the
+                //whole frame because the rest is zero padding.
+            Log.WriteHex("HID++", "->", request, Math.Min(request.Length, LOG_BYTES));
 
             if (!device.Write(request, timeoutMs))
                 return null;
@@ -103,56 +111,39 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                 if (!device.Read(reply, remaining, out read))
                     return null;
 
+                Log.WriteHex("HID++", "<-", reply, Math.Min(read, LOG_BYTES));
+
                 if (read < 5)
                     continue;
                 if (reply[1] != deviceIndex)
                     continue;   //notification about some other device on this receiver
 
-                if (reply[2] == ERROR_HIDPP20 || reply[2] == ERROR_HIDPP10)
+                if (reply[2] == Hidpp.ERROR_HIDPP20 || reply[2] == Hidpp.ERROR_HIDPP10)
                 {
-                        //Error frame: [id][devIdx][0xFF][echoed featureIndex][echoed func][code]
-                    if (read > 5 && reply[3] == featureIndex)
-                    {
-                        Debug.WriteLine("[HID++] error on feature 0x" + featureIndex.ToString("X2")
-                            + " func 0x" + functionId.ToString("X2") + ": code 0x" + reply[5].ToString("X2"));
+                    if (Hidpp.IsErrorFor(reply, read, featureIndex, functionId, "HID++"))
                         return null;
-                    }
-                    continue;
+                    continue;   //an error about some other feature
                 }
 
                 if (reply[2] == featureIndex && reply[3] == request[3])
                     return reply;
 
-                    //Anything else is an unsolicited notification; keep waiting for our reply.
+                    //Anything else is an unsolicited notification -- a receiver's 0x41
+                    //connect/wake/sleep report among them, which carries our device index but a
+                    //protocol byte where the feature index would be. Keep waiting for our reply.
             }
 
             return null;
         }
 
-        /// <summary>
-        /// Root feature ping. Cheap way to find out whether anything is actually listening
-        /// before spending a timeout per feature probing what it supports -- a device that is
-        /// switched off answers nothing at all.
-        /// </summary>
         public bool Ping(byte deviceIndex, int timeoutMs)
         {
-            byte[] reply = Request(deviceIndex, FEATURE_ROOT, 0x01, new byte[] { 0x00, 0x00, PING_MAGIC }, timeoutMs);
-            return reply != null && reply.Length > 6 && reply[6] == PING_MAGIC;
+            return Hidpp.Ping(this, deviceIndex, timeoutMs);
         }
 
-        /// <summary>
-        /// Resolve a feature id to this device's feature index via the root feature.
-        /// Returns 0 when the device does not implement it (index 0 is always the root
-        /// feature itself, so it is never a valid answer here).
-        /// </summary>
         public byte GetFeatureIndex(byte deviceIndex, ushort featureId, int timeoutMs)
         {
-            byte[] reply = Request(deviceIndex, FEATURE_ROOT, 0x00,
-                new byte[] { (byte)(featureId >> 8), (byte)(featureId & 0xFF), 0x00 }, timeoutMs);
-
-            if (reply == null || reply.Length < 5)
-                return 0;
-            return reply[4];
+            return Hidpp.GetFeatureIndex(this, deviceIndex, featureId, timeoutMs);
         }
 
         public void Dispose()

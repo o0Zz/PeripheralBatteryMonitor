@@ -23,10 +23,19 @@ namespace PeripheralBatteryMonitor.Hid
         public int FeatureReportByteLength;
         public string Product;          //HID product string; may be empty
 
+        /// <summary>
+        /// The diagnostics wire format, so its shape is a contract rather than a debugging
+        /// convenience: this one line is what someone answering a "my device does not show
+        /// up" report reads, and every field in it is one a spec can reject on. The report
+        /// lengths are here because they decide whether a transport can open the collection
+        /// at all -- and because both of them arriving as 0 is the tell that
+        /// <c>HidP_GetCaps</c> failed and the usage page above is meaningless.
+        /// </summary>
         public override string ToString()
         {
-            return string.Format("VID_{0:X4}&PID_{1:X4} UP=0x{2:X4} U=0x{3:X4} feat={4} '{5}'",
-                VendorId, ProductId, UsagePage, Usage, FeatureReportByteLength, Product);
+            return string.Format("VID_{0:X4}&PID_{1:X4} UP=0x{2:X4} U=0x{3:X4} in={4} out={5} feat={6} '{7}'",
+                VendorId, ProductId, UsagePage, Usage,
+                InputReportByteLength, OutputReportByteLength, FeatureReportByteLength, Product);
         }
     }
 }

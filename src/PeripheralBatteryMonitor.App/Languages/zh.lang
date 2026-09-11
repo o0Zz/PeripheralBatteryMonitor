@@ -1,4 +1,4 @@
-# PeripheralBatteryMonitor — 简体中文。
+﻿# PeripheralBatteryMonitor — 简体中文。
 # 缺少的条目会回退为英文（见 en.lang）。
 
 @name = 简体中文
@@ -8,6 +8,7 @@ app.name = Peripheral Battery Monitor
 # ---- 系统托盘 ----
 tray.refresh = 刷新
 tray.restartBluetooth = 重启蓝牙
+tray.openLog = 打开日志文件夹
 tray.settings = 设置
 tray.exit = 退出
 
@@ -66,7 +67,7 @@ about.supported = 支持的设备
 about.device.ble = 蓝牙低功耗（BLE）— 耳塞、运动手环、BLE 鼠标和键盘
 about.device.classic = 经典蓝牙 / BR-EDR — 耳机、Windows 上的 AirPods
 about.device.apple = Apple Magic Mouse、Trackpad 和 Keyboard
-about.device.logitech = 使用专用 USB 接收器的 Logitech LIGHTSPEED 设备
+about.device.logitech = Logitech LIGHTSPEED 与 Unifying 设备 — 使用自带接收器或已配对到接收器
 about.device.steelseries = SteelSeries Arctis Nova 5 / 7 无线耳机
 about.device.razer = 使用 HyperSpeed 接收器或蓝牙的 Razer 无线鼠标
 about.author = 作者 o0Zz — {0}

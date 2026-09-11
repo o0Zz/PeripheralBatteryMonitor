@@ -42,5 +42,11 @@ namespace PeripheralBatteryMonitor.Contracts
         public const string PROP_HID_INPUT_REPORT_LENGTH = "PeripheralBatteryMonitor.Hid.InputReportByteLength";
         public const string PROP_HID_OUTPUT_REPORT_LENGTH = "PeripheralBatteryMonitor.Hid.OutputReportByteLength";
         public const string PROP_HID_FEATURE_REPORT_LENGTH = "PeripheralBatteryMonitor.Hid.FeatureReportByteLength";
+
+            //Which device on the far end of that interface. Absent means 0xFF, the device
+            //behind its own dongle, which is every HID device the app supported before
+            //receivers -- so a provider that does not know about this key keeps behaving
+            //exactly as it did.
+        public const string PROP_HID_DEVICE_INDEX = "PeripheralBatteryMonitor.Hid.DeviceIndex";
     }
 }

@@ -31,13 +31,25 @@ namespace PeripheralBatteryMonitor.Hid
             //to say so.
         public readonly int FeatureReportByteLength;
 
+            //Null for the ordinary case: this interface *is* one device. Non-null when the
+            //interface is a receiver, which may carry several -- see IHidDeviceExpander. It
+            //hangs off the spec rather than off the discovery source so that knowing how to
+            //enumerate a vendor's receiver stays with that vendor's provider.
+        public readonly IHidDeviceExpander Expander;
+
         public HidDeviceSpec(ushort vendorId, ushort[] productIds, ushort usagePage, ushort usage, string fallbackName)
-            : this(vendorId, productIds, usagePage, usage, 0, fallbackName)
+            : this(vendorId, productIds, usagePage, usage, 0, fallbackName, null)
         {
         }
 
         public HidDeviceSpec(ushort vendorId, ushort[] productIds, ushort usagePage, ushort usage,
                              int featureReportByteLength, string fallbackName)
+            : this(vendorId, productIds, usagePage, usage, featureReportByteLength, fallbackName, null)
+        {
+        }
+
+        public HidDeviceSpec(ushort vendorId, ushort[] productIds, ushort usagePage, ushort usage,
+                             int featureReportByteLength, string fallbackName, IHidDeviceExpander expander)
         {
             this.VendorId = vendorId;
             this.ProductIds = productIds;
@@ -45,6 +57,7 @@ namespace PeripheralBatteryMonitor.Hid
             this.Usage = usage;
             this.FeatureReportByteLength = featureReportByteLength;
             this.FallbackName = fallbackName;
+            this.Expander = expander;
         }
 
         public bool Matches(HidInterfaceInfo info)

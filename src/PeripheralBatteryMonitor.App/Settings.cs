@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Threading;
 using System.Windows.Forms;
+using PeripheralBatteryMonitor.Diagnostics;
 
 namespace PeripheralBatteryMonitor
 {
@@ -83,6 +84,20 @@ namespace PeripheralBatteryMonitor
             UpdateIcon();
 
             isInitializing = false;
+
+                //Posted, not called, and posted from here rather than from OnLoad -- which
+                //never runs until the user opens this window, because SetVisibleCore keeps the
+                //form hidden for the whole session otherwise. The handle was forced above, so
+                //BeginInvoke has somewhere to post to and the snapshot runs on the first turn
+                //of the message loop.
+                //
+                //It is posted because it opens every HID interface on the machine and probes
+                //the unrecognised Logitech ones, which on an unlucky machine is seconds of
+                //work; running it inline would hold up the tray icon appearing, on exactly the
+                //machine whose owner already suspects the app is broken. Posting also keeps it
+                //on the UI thread, which is where the poll tick runs, so a snapshot and a poll
+                //can never be talking to one HID collection at the same time.
+            BeginInvoke((Action)DiagnosticReport.WriteStartupSnapshot);
         }
 
             //Auto-scaling has happened by the time OnLoad runs, which is what makes the
@@ -218,6 +233,27 @@ namespace PeripheralBatteryMonitor
         private void restartBluetoothToolStripMenuItem_Click(object sender, EventArgs e)
         {
             RestartBluetooth();
+        }
+
+        /// <summary>
+        /// Shows the user the log file. It is always being written, so there is nothing to
+        /// generate here and nothing to wait for -- this entry exists only so that "send me
+        /// the log" does not have to start with reciting a path.
+        /// </summary>
+        private void openLogToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string path = Log.FilePath;
+            try
+            {
+                    //Select rather than open: the reporter is being asked to attach this file,
+                    //not to read it, and Explorer is where they can drag it from.
+                System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\"");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, path + "\n\n" + ex.Message,
+                    Strings.Get("tray.openLog"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
         }
 
         /// <summary>
@@ -719,6 +755,7 @@ namespace PeripheralBatteryMonitor
 
             refreshToolStripMenuItem.Text = Strings.Get("tray.refresh");
             restartBluetoothToolStripMenuItem.Text = Strings.Get("tray.restartBluetooth");
+            openLogToolStripMenuItem.Text = Strings.Get("tray.openLog");
             settingsToolStripMenuItem.Text = Strings.Get("tray.settings");
             exitToolStripMenuItem.Text = Strings.Get("tray.exit");
 

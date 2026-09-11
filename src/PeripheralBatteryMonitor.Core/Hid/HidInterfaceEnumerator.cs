@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
+using PeripheralBatteryMonitor.Diagnostics;
 
 namespace PeripheralBatteryMonitor.Hid
 {
@@ -99,12 +100,18 @@ namespace PeripheralBatteryMonitor.Hid
                        IntPtr.Zero, HidNative.OPEN_EXISTING, 0, IntPtr.Zero))
             {
                 if (handle.IsInvalid)
+                {
+                    DescribeFailedOnce(path, "CreateFile failed (error " + Marshal.GetLastWin32Error() + ")");
                     return null;
+                }
 
                 HidNative.HIDD_ATTRIBUTES attributes = new HidNative.HIDD_ATTRIBUTES();
                 attributes.Size = Marshal.SizeOf(typeof(HidNative.HIDD_ATTRIBUTES));
                 if (!HidNative.HidD_GetAttributes(handle, ref attributes))
+                {
+                    DescribeFailedOnce(path, "HidD_GetAttributes failed");
                     return null;
+                }
 
                 HidInterfaceInfo info = new HidInterfaceInfo();
                 info.Path = path;
@@ -130,6 +137,13 @@ namespace PeripheralBatteryMonitor.Hid
                             info.OutputReportByteLength = caps.OutputReportByteLength;
                             info.FeatureReportByteLength = caps.FeatureReportByteLength;
                         }
+                        else
+                        {
+                                //Worth a line of its own: the interface still comes back, but
+                                //with usage page and both report lengths left at 0, which makes
+                                //every spec that matches on them silently miss it.
+                            DescribeFailedOnce(path, "HidP_GetCaps failed, capabilities unknown");
+                        }
                     }
                     finally
                     {
@@ -137,7 +151,36 @@ namespace PeripheralBatteryMonitor.Hid
                     }
                 }
 
+                DescribeSucceeded(path);
                 return info;
+            }
+        }
+
+            //What each path last failed with. Enumeration runs on every poll tick, and a
+            //collection Windows opens exclusively for itself fails identically for as long as
+            //the machine is on -- that is one fact, not 288 events a day. A *different* reason
+            //is worth a line, and so is the interface starting to describe properly.
+        private static readonly Dictionary<string, string> lastDescribeFailure = new Dictionary<string, string>();
+
+        private static void DescribeFailedOnce(string path, string reason)
+        {
+            lock (lastDescribeFailure)
+            {
+                string previous;
+                if (lastDescribeFailure.TryGetValue(path, out previous) && previous == reason)
+                    return;
+                lastDescribeFailure[path] = reason;
+            }
+
+            Log.Write("Hid", "describe: " + reason + " on " + path);
+        }
+
+        private static void DescribeSucceeded(string path)
+        {
+            lock (lastDescribeFailure)
+            {
+                if (lastDescribeFailure.Remove(path))
+                    Log.Write("Hid", "describe: succeeding again on " + path);
             }
         }
 
