@@ -50,8 +50,14 @@ namespace PeripheralBatteryMonitor
             {
                 Log.Write("Report", "================ startup snapshot ================");
                 WriteHeader();
-                WriteHidInterfaces();
-                Providers.Logitech.LogitechProbe.ProbeUnclaimed();
+
+                    //null means "no vendor pre-filter" -- the whole point is the interfaces the
+                    //poll tick never even looks at. Enumerated once and handed to both sections,
+                    //because each interface here costs a CreateFile.
+                List<HidInterfaceInfo> all = HidInterfaceEnumerator.Enumerate(null);
+
+                WriteHidInterfaces(all);
+                ProbeUnclaimedVendorCollections(all);
                 Log.Write("Report", "================ end of snapshot ================");
             }
             catch (Exception e)
@@ -81,13 +87,9 @@ namespace PeripheralBatteryMonitor
         /// Every HID interface present, and for each one whether a spec claims it. An
         /// interface listed here as claimed by no spec is one the app cannot see at all.
         /// </summary>
-        private static void WriteHidInterfaces()
+        private static void WriteHidInterfaces(List<HidInterfaceInfo> all)
         {
             Log.Write("Report", "---- HID interfaces (all vendors) ----");
-
-                //null means "no vendor pre-filter" -- the whole point is the interfaces the
-                //poll tick never even looks at.
-            List<HidInterfaceInfo> all = HidInterfaceEnumerator.Enumerate(null);
             Log.Write("Report", all.Count + " interface(s)");
 
             foreach (HidInterfaceInfo info in all)
@@ -96,6 +98,52 @@ namespace PeripheralBatteryMonitor
                 Log.Write("Report", (spec != null ? "  claimed by '" + spec.FallbackName + "'" : "  claimed by no spec")
                     + "  " + info);
                 Log.Write("Report", "      " + info.Path);
+            }
+        }
+
+        /// <summary>
+        /// Every vendor-defined collection no spec claims, and whatever the vendor's own probe
+        /// can get out of it. This is the case nothing else in the log covers: a claimed
+        /// collection is already traced by the read path on every poll, in both directions.
+        ///
+        /// Which collections qualify is decided here and the vendor conversation is not -- see
+        /// <c>IHidInterfaceProbe</c>. A collection with no probe registered is still worth its
+        /// line: that is the app saying, in as many words, that it can see the device and has
+        /// nothing to say to it.
+        /// </summary>
+        private static void ProbeUnclaimedVendorCollections(List<HidInterfaceInfo> all)
+        {
+            Log.Write("Report", "---- unclaimed vendor collections ----");
+
+            foreach (HidInterfaceInfo info in all)
+            {
+                    //Vendor-defined pages only. The mouse, keyboard and consumer-control
+                    //collections beside them speak no vendor protocol and Windows often holds
+                    //them exclusively, so probing them would produce a page of access-denied.
+                if (info.UsagePage < 0xFF00)
+                    continue;
+
+                if (HidDeviceSpecRegistry.Match(info) != null)
+                    continue;   //the read path already traces this one, every poll
+
+                Log.Write("Report", "collection " + info);
+                Log.Write("Report", "    " + info.Path);
+
+                IHidInterfaceProbe probe = HidInterfaceProbeRegistry.Match(info);
+                if (probe == null)
+                {
+                    Log.Write("Report", "    no probe registered for VID_" + info.VendorId.ToString("X4"));
+                    continue;
+                }
+
+                try
+                {
+                    probe.Probe(info);
+                }
+                catch (Exception e)
+                {
+                    Log.Write("Report", "    probe threw: " + e.Message);
+                }
             }
         }
     }

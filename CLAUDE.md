@@ -2,6 +2,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Working agreement
+
+**Never run `git commit` or `git push`. The author does that.** Leave every change in
+the working tree and say which files you touched — review here happens by reading the
+diff, and a commit made on the author's behalf turns that diff into a clean
+`git status` with the work one command further away.
+
+This outranks any workflow or skill that says to commit between steps — the `/cleanup`
+skill does, and that is the mistake this rule exists to stop. Carry out the steps, keep
+the build green between them, and stop short of the commit.
+
+Also not without being asked, in the same message: `git push`, `git reset --hard`,
+`git checkout --` over live edits, branch or tag creation, or anything else that
+rewrites history or discards work.
+
 ## Build / run
 
 Windows-only WinForms app targeting **.NET Framework 4.8** (`WinExe`, AnyCPU running 64-bit). Both projects are SDK-style and `Microsoft.NETFramework.ReferenceAssemblies` supplies the net48 reference assemblies, so the plain .NET SDK builds the repo — no Visual Studio, no targeting pack, no `nuget.exe`.
@@ -298,8 +313,14 @@ thing.** The tray's *Open log folder* entry only reveals the file; it generates 
 - **`DiagnosticReport.WriteStartupSnapshot`** covers the one gap the continuous log cannot:
   discovery's enumeration is pre-filtered to *registered vendor ids*, so the poll tick never
   sees the interface nobody claims — which is the shape of almost every report. It
-  enumerates with no filter, once, and probes the Logitech vendor collections no spec
-  claimed (a claimed one is already traced by the read path on every poll). It is
+  enumerates with no filter, once, and then walks that same list a second time for the
+  **vendor-defined collections no spec claimed** (a claimed one is already traced by the read
+  path on every poll), handing each to whichever probe `HidInterfaceProbeRegistry` has for its
+  vendor id — or logging that nobody has one. **That selection is the root file's and the
+  conversation is the vendor's**: `Hid/IHidInterfaceProbe` is the hook, the same split as
+  `IHidDeviceExpander`, and `Providers/HidInterfaceProbeRegistry` is the only file naming a
+  probe, so `DiagnosticReport` names no vendor. `Providers/Logitech/LogitechProbe` is the one
+  built-in. It is
   `BeginInvoke`d from the `Settings` **constructor**, not `OnLoad` — `SetVisibleCore` keeps
   that form hidden, so `OnLoad` does not run until the user first opens the window — and it
   stays on the UI thread because that is where the poll tick runs, so a snapshot and a poll
