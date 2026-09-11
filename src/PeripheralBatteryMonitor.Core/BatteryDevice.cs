@@ -121,14 +121,6 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// Is the device reachable right now? Three sources, most authoritative first.
-        ///
-        /// The caller uses this to decide what the tray icon and its tooltip are allowed to
-        /// report, so a wrong answer is visible either way: say "connected" for a device in a
-        /// drawer and its last reading keeps dragging the icon down, say "disconnected" for a
-        /// live one and it vanishes from the tray.
-        /// </summary>
-        /// <summary>
         /// One line carrying everything worth knowing about this device at this moment. Both
         /// outcomes of a poll go through it, so a log reader can follow one device down the
         /// file and see level, liveness and which provider answered change together.
@@ -145,6 +137,14 @@ namespace PeripheralBatteryMonitor
                 + " provider=" + (provider != null ? provider.GetType().Name : GetBoundProviderName());
         }
 
+        /// <summary>
+        /// Is the device reachable right now? Three sources, most authoritative first.
+        ///
+        /// The caller uses this to decide what the tray icon and its tooltip are allowed to
+        /// report, so a wrong answer is visible either way: say "connected" for a device in a
+        /// drawer and its last reading keeps dragging the icon down, say "disconnected" for a
+        /// live one and it vanishes from the tray.
+        /// </summary>
         public bool IsConnected()
         {
                 //1. The provider actually BOUND to this device, when it maintains a live link

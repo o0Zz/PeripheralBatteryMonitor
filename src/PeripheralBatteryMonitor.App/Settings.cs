@@ -800,8 +800,6 @@ namespace PeripheralBatteryMonitor
         }
     }
 
-    /* --------------------------------------------------------------------- */
-
     class DeviceNotification : IDeviceNotification
     {
         private Settings form;
@@ -812,7 +810,6 @@ namespace PeripheralBatteryMonitor
 
         public void OnNewDevice(BatteryDevice aDevice)
         {
-            //this.form.Notify("New device detected: " + aDevice.GetName() + " (Battery: " + aDevice.GetBatteryLevel() + "%)");
             this.form.UpdateIcon();
         }
 

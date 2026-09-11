@@ -127,12 +127,12 @@ namespace PeripheralBatteryMonitor
             //grow downwards"; WinForms scales MaximumSize with the rest of the form, so the
             //wrap point follows the display scale.
             //
-            //500 rather than a rounder number because it was measured, not guessed. The
-            //supported-device list is the widest thing in this window, and at 96 DPI its
-            //longest line is the Spanish Bluetooth Low Energy entry at 425 px -- five past the
-            //420 this used to wrap at, so that one bullet spilled a couple of words onto a
-            //second line and broke the list. 500 clears the longest line in all five languages
-            //with room for a translation that runs longer. Re-measure before shrinking it.
+            //Measured, not guessed. The supported-device list is the widest thing in this
+            //window, and at 96 DPI its longest line is the Spanish Bluetooth Low Energy entry
+            //at 425 px -- five past the 420 this used to wrap at, so that one bullet spilled a
+            //couple of words onto a second line and broke the list. 600 clears the longest
+            //line in every language with room for a translation that runs longer. Re-measure
+            //before shrinking it.
         private const int WrapWidth = 600;
 
         private static Label Paragraph(string text)

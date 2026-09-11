@@ -32,7 +32,9 @@ namespace PeripheralBatteryMonitor
         /// <summary>
         /// Real I/O -- one query-only <c>CreateFile</c> per HID interface on the machine, plus
         /// the vendor probe -- so this is <b>not</b> for the startup path. Call it once the
-        /// message loop is running (<c>BeginInvoke</c> from <c>Settings.OnLoad</c>): running it
+        /// message loop is running (<c>BeginInvoke</c> from the <c>Settings</c> constructor --
+        /// not from its <c>OnLoad</c>, which <c>SetVisibleCore</c> keeps from ever running
+        /// unless the user opens that window): running it
         /// before <c>Application.Run</c> is seconds of no tray icon at all on a machine with
         /// sixty HID interfaces and a device in selective suspend, which is precisely the
         /// machine whose owner already suspects the app is broken.

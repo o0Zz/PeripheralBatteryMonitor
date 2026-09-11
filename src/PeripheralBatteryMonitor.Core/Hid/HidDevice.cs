@@ -7,9 +7,10 @@ using PeripheralBatteryMonitor.Diagnostics;
 namespace PeripheralBatteryMonitor.Hid
 {
     /// <summary>
-    /// An open HID interface, in one of two modes -- see <see cref="Open"/> versus
-    /// <see cref="OpenForReportRequests"/>. The distinction is not cosmetic: it decides
-    /// whether the handle can wait for traffic the device sends on its own.
+    /// An open HID interface, in one of three modes -- <see cref="Open"/>,
+    /// <see cref="OpenForReportRequests"/> and <see cref="OpenForFeatureReports"/>. The
+    /// distinction is not cosmetic: it decides whether the handle can wait for traffic the
+    /// device sends on its own, and what access rights it had to ask for to exist at all.
     ///
     /// Open one only for the duration of a transaction. The driver keeps a per-handle queue
     /// of input reports, so a short-lived handle guarantees the first report read is a
