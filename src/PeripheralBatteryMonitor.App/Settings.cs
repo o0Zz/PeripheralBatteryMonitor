@@ -350,7 +350,7 @@ namespace PeripheralBatteryMonitor
             RefreshNow();
         }
 
-        private void ReportBluetoothRestartFailure(Exception error)
+        private static void ReportBluetoothRestartFailure(Exception error)
         {
             MessageBox.Show(Strings.Format("notify.bluetoothRestart.failed", DescribeFailure(error)),
                             Strings.Get("app.name"), MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -632,7 +632,7 @@ namespace PeripheralBatteryMonitor
             Hide();
         }
 
-        private void ShowAbout()
+        private static void ShowAbout()
         {
                 //No owner: this form is usually hidden by SetVisibleCore, and ShowDialog
                 //refuses an invisible owner outright.

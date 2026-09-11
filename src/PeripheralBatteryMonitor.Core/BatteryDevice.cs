@@ -62,7 +62,7 @@ namespace PeripheralBatteryMonitor
             UpdateBatteryLevel();
         }
 
-        public void UpdateProperties(IReadOnlyDictionary<string, object> updated)
+        internal void UpdateProperties(IReadOnlyDictionary<string, object> updated)
         {
             if (updated == null) return;
             CacheProperties(updated);
@@ -209,11 +209,11 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// Which provider last produced a reading for this device, for the diagnostic report.
-        /// "which one answered" is the single most useful fact about a device that reads
-        /// wrong, and it is otherwise invisible from outside.
+        /// Which provider last produced a reading for this device, for the log line
+        /// <see cref="Describe"/> builds. "Which one answered" is the single most useful fact
+        /// about a device that reads wrong, and it is otherwise invisible from outside.
         /// </summary>
-        public string GetBoundProviderName()
+        private string GetBoundProviderName()
         {
             IBatteryProvider provider = boundProvider;
             return provider == null ? "(none)" : provider.GetType().Name;

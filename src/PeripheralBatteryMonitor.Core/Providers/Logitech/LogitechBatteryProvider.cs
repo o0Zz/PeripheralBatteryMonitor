@@ -267,7 +267,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         }
 
         /// <summary>0x1004 getStatus: a percentage when supported, else a discrete level flag.</summary>
-        private int? ReadUnifiedBattery(IHidppTransport hidpp, byte featureIndex, IBatteryDeviceContext ctx)
+        private static int? ReadUnifiedBattery(IHidppTransport hidpp, byte featureIndex, IBatteryDeviceContext ctx)
         {
             byte[] reply = hidpp.Request(DeviceIndexFor(ctx), featureIndex, 0x01, null, TIMEOUT_MS);
             if (reply == null || reply.Length < 7)
@@ -292,7 +292,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         }
 
         /// <summary>0x1000 getBatteryLevelStatus: percentage in byte 0, 0 meaning "unknown".</summary>
-        private int? ReadLevelStatus(IHidppTransport hidpp, byte featureIndex, IBatteryDeviceContext ctx)
+        private static int? ReadLevelStatus(IHidppTransport hidpp, byte featureIndex, IBatteryDeviceContext ctx)
         {
             byte[] reply = hidpp.Request(DeviceIndexFor(ctx), featureIndex, 0x00, null, TIMEOUT_MS);
             if (reply == null || reply.Length < 7)
@@ -321,7 +321,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         };
 
         /// <summary>0x1001 / 0x1F20: raw cell voltage in millivolts, converted by the curve.</summary>
-        private int? ReadVoltage(IHidppTransport hidpp, ushort featureId, byte featureIndex, IBatteryDeviceContext ctx)
+        private static int? ReadVoltage(IHidppTransport hidpp, ushort featureId, byte featureIndex, IBatteryDeviceContext ctx)
         {
             byte[] reply = hidpp.Request(DeviceIndexFor(ctx), featureIndex, 0x00, null, TIMEOUT_MS);
             if (reply == null || reply.Length < 7)
