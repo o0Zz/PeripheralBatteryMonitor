@@ -72,7 +72,7 @@ namespace PeripheralBatteryMonitor
         /// </summary>
         internal static void Use(string code)
         {
-            string wanted = String.IsNullOrEmpty(code) || code.Trim().Length == 0
+            string wanted = String.IsNullOrWhiteSpace(code)
                 ? CultureInfo.CurrentUICulture.TwoLetterISOLanguageName
                 : code.Trim().ToLowerInvariant();
 

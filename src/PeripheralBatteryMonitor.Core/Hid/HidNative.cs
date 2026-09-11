@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 using Microsoft.Win32.SafeHandles;
 
 namespace PeripheralBatteryMonitor.Hid
@@ -28,6 +29,23 @@ namespace PeripheralBatteryMonitor.Hid
         internal const uint WAIT_OBJECT_0 = 0;
 
         internal const int HIDP_STATUS_SUCCESS = 0x00110000;
+
+            //Every hid.dll string getter fills a caller-supplied buffer of this size: the HID
+            //string cap is 126 wchars including the terminator.
+        internal const int STRING_BYTES = 254;
+
+        /// <summary>
+        /// Decode a buffer one of the <c>HidD_Get*String</c> calls filled in: UTF-16, cut at
+        /// the first NUL. Shared because two callers ask hid.dll for two different strings
+        /// (<see cref="HidD_GetSerialNumberString"/>, <see cref="HidD_GetProductString"/>) and
+        /// get back the same shape.
+        /// </summary>
+        internal static string DecodeString(byte[] buffer)
+        {
+            string s = Encoding.Unicode.GetString(buffer);
+            int nul = s.IndexOf('\0');
+            return nul < 0 ? s : s.Substring(0, nul);
+        }
 
         [StructLayout(LayoutKind.Sequential)]
         internal struct SP_DEVICE_INTERFACE_DATA

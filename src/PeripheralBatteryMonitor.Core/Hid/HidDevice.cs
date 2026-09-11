@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using System.Text;
 using Microsoft.Win32.SafeHandles;
 using PeripheralBatteryMonitor.Diagnostics;
 
@@ -276,14 +275,10 @@ namespace PeripheralBatteryMonitor.Hid
         /// <summary>The HID serial number string, or "" when the device doesn't expose one.</summary>
         public string GetSerialNumber()
         {
-            byte[] buffer = new byte[254];   //HID string cap is 126 wchars incl. null
+            byte[] buffer = new byte[HidNative.STRING_BYTES];
             if (!HidNative.HidD_GetSerialNumberString(handle, buffer, buffer.Length))
                 return "";
-            string s = Encoding.Unicode.GetString(buffer);
-            int nul = s.IndexOf('\0');
-            if (nul >= 0)
-                s = s.Substring(0, nul);
-            return s;
+            return HidNative.DecodeString(buffer);
         }
 
         /// <summary>

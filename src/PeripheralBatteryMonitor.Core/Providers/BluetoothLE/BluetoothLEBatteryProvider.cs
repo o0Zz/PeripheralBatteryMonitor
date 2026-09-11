@@ -1,5 +1,4 @@
 using System;
-using System.Threading;
 using System.Threading.Tasks;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
@@ -81,39 +80,37 @@ namespace PeripheralBatteryMonitor.Providers
             ResetConnection();
 
             Task<BluetoothLEDevice> bleTask = BluetoothLEDevice.FromIdAsync(ctx.DeviceId).AsTask();
-            if (bleTask.Wait(bleConnectionTimeoutMs, new CancellationTokenSource().Token))
+            if (!bleTask.Wait(bleConnectionTimeoutMs))
+                return;
+
+            bleDev = bleTask.Result;
+            if (bleDev == null)
+                return;
+
+            ctx.DeviceName = bleDev.Name;
+
+            Task<GattDeviceServicesResult> batteryServiceTask = bleDev.GetGattServicesForUuidAsync(BATTERY_UUID, BluetoothCacheMode.Uncached).AsTask();
+            if (!batteryServiceTask.Wait(bleReadTimeoutMs))
+                return;
+            if (!GattCommunicationStatus.Success.Equals(batteryServiceTask.Result.Status))
+                return;
+
+            if (batteryServiceTask.Result.Services == null || batteryServiceTask.Result.Services.Count == 0)
             {
-                bleDev = bleTask.Result;
-                if (bleDev == null)
-                    return;
+                    //GATT 0x180F not present -- skip GATT for the rest of this device's lifetime
+                supportGattBattery = false;
+                return;
+            }
 
-                ctx.DeviceName = bleDev.Name;
+            Task<GattCharacteristicsResult> gattCharacteristicsTask = batteryServiceTask.Result.Services[0].GetCharacteristicsForUuidAsync(BATTERY_LEVEL_UUID, BluetoothCacheMode.Uncached).AsTask();
+            if (!gattCharacteristicsTask.Wait(bleReadTimeoutMs))
+                return;
 
-                Task<GattDeviceServicesResult> batteryServiceTask = bleDev.GetGattServicesForUuidAsync(BATTERY_UUID, BluetoothCacheMode.Uncached).AsTask();
-                if (batteryServiceTask.Wait(bleReadTimeoutMs))
-                {
-                    if (GattCommunicationStatus.Success.Equals(batteryServiceTask.Result.Status))
-                    {
-                        if (batteryServiceTask.Result.Services == null || batteryServiceTask.Result.Services.Count == 0)
-                        {
-                                //GATT 0x180F not present -- skip GATT for the rest of this device's lifetime
-                            supportGattBattery = false;
-                        }
-                        else
-                        {
-                            Task<GattCharacteristicsResult> gattCharacteristicsTask = batteryServiceTask.Result.Services[0].GetCharacteristicsForUuidAsync(BATTERY_LEVEL_UUID, BluetoothCacheMode.Uncached).AsTask();
-                            if (gattCharacteristicsTask.Wait(bleReadTimeoutMs))
-                            {
-                                if (GattCommunicationStatus.Success.Equals(gattCharacteristicsTask.Result.Status)
-                                    && gattCharacteristicsTask.Result.Characteristics != null
-                                    && gattCharacteristicsTask.Result.Characteristics.Count > 0)
-                                {
-                                    gattCharacteristic = gattCharacteristicsTask.Result.Characteristics[0];
-                                }
-                            }
-                        }
-                    }
-                }
+            if (GattCommunicationStatus.Success.Equals(gattCharacteristicsTask.Result.Status)
+                && gattCharacteristicsTask.Result.Characteristics != null
+                && gattCharacteristicsTask.Result.Characteristics.Count > 0)
+            {
+                gattCharacteristic = gattCharacteristicsTask.Result.Characteristics[0];
             }
         }
 

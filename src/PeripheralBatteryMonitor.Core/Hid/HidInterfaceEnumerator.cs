@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.InteropServices;
-using System.Text;
 using Microsoft.Win32.SafeHandles;
 using PeripheralBatteryMonitor.Diagnostics;
 
@@ -186,14 +185,10 @@ namespace PeripheralBatteryMonitor.Hid
 
         private static string ReadString(SafeFileHandle handle)
         {
-            byte[] buffer = new byte[254];   //HID string cap is 126 wchars incl. null
+            byte[] buffer = new byte[HidNative.STRING_BYTES];
             if (!HidNative.HidD_GetProductString(handle, buffer, buffer.Length))
                 return "";
-            string s = Encoding.Unicode.GetString(buffer);
-            int nul = s.IndexOf('\0');
-            if (nul >= 0)
-                s = s.Substring(0, nul);
-            return s.Trim();
+            return HidNative.DecodeString(buffer).Trim();
         }
 
         private static string GetDevicePath(IntPtr deviceInfoSet, ref HidNative.SP_DEVICE_INTERFACE_DATA interfaceData)
