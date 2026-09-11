@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Reflection;
 using System.Text;
 using System.Threading;
 
@@ -33,14 +32,6 @@ namespace PeripheralBatteryMonitor
             Load(FallbackCode) ?? new Dictionary<string, string>(StringComparer.Ordinal);
 
         private static Dictionary<string, string> current = english;
-
-        /// <summary>The language in use, as a two-letter code.</summary>
-        internal static string Code { get; private set; }
-
-        static Strings()
-        {
-            Code = FallbackCode;
-        }
 
         /// <summary>The languages this build carries, each named in its own language.</summary>
         internal static IList<Language> Available
@@ -92,7 +83,6 @@ namespace PeripheralBatteryMonitor
                 table = english;
             }
 
-            Code = wanted;
             current = table;
 
                 //UI culture only, never CurrentCulture. CurrentCulture decides how numbers parse

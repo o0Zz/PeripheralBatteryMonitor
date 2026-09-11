@@ -156,7 +156,6 @@ namespace PeripheralBatteryMonitor
                     ? "info.state.connected" : "info.state.disconnected"));
                 listViewItem.SubItems.Add(theBatteryLevel < 0
                     ? "?" : theBatteryLevel + "%");
-                listViewItem.Tag = device;
                 listView1.Items.Add(listViewItem);
 
             }

@@ -30,7 +30,6 @@ namespace PeripheralBatteryMonitor
         private static readonly string[] requestedProperties = new string[]
         {
             DeviceProperties.PROP_AEP_DEVICE_ADDRESS,
-            "System.Devices.Aep.Bluetooth.Le.IsConnectable",
             DeviceProperties.PROP_AEP_IS_PAIRED,
             DeviceProperties.PROP_AEP_IS_CONNECTED,
             DeviceProperties.PROP_AEP_CONTAINER_ID,
@@ -266,8 +265,7 @@ namespace PeripheralBatteryMonitor
 
         private void RemoveDevice(string id)
         {
-            BatteryDevice removed;
-            if (deviceDict.TryRemove(id, out removed))
+            if (deviceDict.TryRemove(id, out _))
                 this.deviceNotification.OnDeviceRemoved(id);
         }
 

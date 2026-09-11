@@ -179,7 +179,7 @@ namespace PeripheralBatteryMonitor.Hid
                     return false;
                 }
 
-                return HidNative.GetOverlappedResult(handle, overlapped, out written, false);
+                return HidNative.GetOverlappedResult(handle, overlapped, out _, false);
             }
             finally
             {

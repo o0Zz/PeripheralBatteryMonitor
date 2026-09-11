@@ -78,11 +78,11 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                 //a 64-byte collection can be opened by either transport, so guessing here
                 //would be the same guess the report exists to replace. A framing the device
                 //does not speak simply stays silent, and the silence is itself an answer.
-            ProbeFraming(info, "Centurion", CenturionTransport.Open(info));
-            ProbeFraming(info, "HID++", HidppTransport.Open(info));
+            ProbeFraming("Centurion", CenturionTransport.Open(info));
+            ProbeFraming("HID++", HidppTransport.Open(info));
         }
 
-        private static void ProbeFraming(HidInterfaceInfo info, string framing, IHidppTransport hidpp)
+        private static void ProbeFraming(string framing, IHidppTransport hidpp)
         {
             if (hidpp == null)
                 return;
