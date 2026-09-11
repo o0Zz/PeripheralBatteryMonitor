@@ -80,12 +80,15 @@ namespace PeripheralBatteryMonitor.Providers.Razer
             if (device == null || device.FeatureReportByteLength != WIRE_LENGTH)
                 return null;
 
+                //Built once: nothing in it varies by attempt, and SetFeature does not write
+                //back into the buffer it sends. A retry is meant to be the identical frame.
+            byte[] wire = Build(transactionId, commandClass, commandId, dataSize);
+
             for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++)
             {
                 if (attempt > 0)
                     Thread.Sleep(RETRY_MS);
 
-                byte[] wire = Build(transactionId, commandClass, commandId, dataSize);
                 if (!device.SetFeature(wire))
                     return null;
 
