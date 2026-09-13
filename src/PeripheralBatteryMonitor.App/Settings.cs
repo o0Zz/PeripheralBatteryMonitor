@@ -212,7 +212,9 @@ namespace PeripheralBatteryMonitor
             Cursor.Current = Cursors.WaitCursor;
             try
             {
-                UpdateIcon();
+                    //Forced: this is the one pass that may re-run the cached parts of
+                    //discovery, because it is the one the user asked for.
+                UpdateIcon(true);
             }
             finally
             {
@@ -385,9 +387,21 @@ namespace PeripheralBatteryMonitor
 
         public void UpdateIcon()
         {
+            UpdateIcon(false);
+        }
+
+        /// <summary>
+        /// One poll pass. <paramref name="rediscover"/> marks the pass the user asked for, and
+        /// carries that distinction into discovery: parts of it cache -- a Logitech receiver
+        /// sweep costs six radio round trips, so it does not run every tick -- and a Refresh
+        /// that served a cached answer would be a button that does nothing, which is precisely
+        /// how a missing device gets reported as one that cannot be found at all.
+        /// </summary>
+        public void UpdateIcon(bool rediscover)
+        {
             if (this.InvokeRequired)
             {
-                this.BeginInvoke(new Action(UpdateIcon));
+                this.BeginInvoke(new Action<bool>(UpdateIcon), rediscover);
                 return;
             }
 
@@ -402,7 +416,7 @@ namespace PeripheralBatteryMonitor
             {
                     //USB HID devices have no watcher behind them; re-snapshot them each tick
                     //so plugging or unplugging a dongle is picked up.
-                deviceManager.refreshHidDevices();
+                deviceManager.refreshHidDevices(rediscover);
 
                 ConcurrentDictionary<string, BatteryDevice> deviceDict = deviceManager.getDeviceList();
 

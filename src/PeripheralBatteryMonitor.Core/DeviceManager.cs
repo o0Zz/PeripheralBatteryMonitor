@@ -75,15 +75,19 @@ namespace PeripheralBatteryMonitor
         ///
         /// Only touches <see cref="DeviceTransport.UsbHid"/> entries; the Bluetooth ones are
         /// owned by the watchers.
+        ///
+        /// <paramref name="force"/> is the user asking for this rather than the timer: it
+        /// bypasses the caches inside discovery -- a receiver sweep is the one part of this
+        /// that is not re-run every tick -- so that Refresh means what it says.
         /// </summary>
-        public void refreshHidDevices()
+        public void refreshHidDevices(bool force = false)
         {
             if (!running)
                 return;
 
             HashSet<string> presentIds = new HashSet<string>();
 
-            foreach (HidDiscoveredDevice found in HidDeviceSource.Discover())
+            foreach (HidDiscoveredDevice found in HidDeviceSource.Discover(force))
             {
                 presentIds.Add(found.Id);
 

@@ -34,8 +34,12 @@ namespace PeripheralBatteryMonitor
         /// <summary>
         /// Every device behind a present HID interface that a registered spec claims. May be
         /// empty.
+        ///
+        /// <paramref name="force"/> passes the user's explicit Refresh down to the specs that
+        /// cache -- the receiver expanders. The enumeration itself is a setupapi walk that is
+        /// never cached, so nothing else here reads it.
         /// </summary>
-        public static List<HidDiscoveredDevice> Discover()
+        public static List<HidDiscoveredDevice> Discover(bool force)
         {
             List<HidDiscoveredDevice> found = new List<HidDiscoveredDevice>();
 
@@ -56,7 +60,7 @@ namespace PeripheralBatteryMonitor
                 {
                         //A receiver: the interface stands for whatever is paired to it, and
                         //possibly for nothing at all.
-                    List<HidDiscoveredDevice> children = spec.Expander.Expand(info, spec);
+                    List<HidDiscoveredDevice> children = spec.Expander.Expand(info, spec, force);
                     if (children != null)
                         found.AddRange(children);
                     continue;

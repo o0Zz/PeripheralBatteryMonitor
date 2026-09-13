@@ -17,6 +17,16 @@ namespace PeripheralBatteryMonitor.Hid
     /// </summary>
     public interface IHidDeviceExpander
     {
-        List<HidDiscoveredDevice> Expand(HidInterfaceInfo info, HidDeviceSpec spec);
+        /// <summary>
+        /// The devices behind <paramref name="info"/>, possibly none.
+        ///
+        /// <paramref name="force"/> is the user having just asked for a refresh, and it means
+        /// "do the expensive thing now" -- an implementation that caches must re-probe rather
+        /// than serve what it has. Without it a cache is indistinguishable from a broken
+        /// Refresh button: a peripheral switched on a moment ago stays missing, the user
+        /// clicks Refresh, and the app confidently repeats an answer it worked out minutes
+        /// before anything happened.
+        /// </summary>
+        List<HidDiscoveredDevice> Expand(HidInterfaceInfo info, HidDeviceSpec spec, bool force);
     }
 }

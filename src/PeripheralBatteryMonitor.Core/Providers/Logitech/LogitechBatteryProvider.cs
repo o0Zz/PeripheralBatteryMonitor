@@ -37,9 +37,19 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
     {
         private const ushort LOGITECH_VENDOR_ID = 0x046D;
 
-            //Logitech's HID++ collection on modern gaming gear.
+            //Logitech's HID++ collection on modern gaming gear, for a device connected
+            //directly -- its own dongle, or Bluetooth.
         private const ushort HIDPP_USAGE_PAGE = 0xFF43;
         private const ushort HIDPP_USAGE = 0x0202;
+
+            //A *receiver* carries the same HID++ traffic on a different collection: the
+            //generic vendor page 0xFF00, short reports at usage 0x0001 and long ones at
+            //0x0002. It is not a variant spelling of the pair above -- a receiver never
+            //publishes 0xFF43 and a directly connected device never publishes 0xFF00 -- which
+            //is why ReceiverHidSpec has to state its own. Pointing it at 0xFF43 made every
+            //receiver unclaimable and the whole sweep below unreachable.
+        private const ushort RECEIVER_USAGE_PAGE = 0xFF00;
+        private const ushort RECEIVER_USAGE_LONG = 0x0002;
 
             //The collection the newer headsets answer on instead, carrying the same HID++ 2.0
             //feature layer inside Centurion framing. A device publishes one or the other, never
@@ -100,13 +110,14 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
 
         /// <summary>
         /// A LIGHTSPEED or Unifying receiver, which is one interface carrying up to six
-        /// peripherals rather than being one device itself. It matches the same HID++
-        /// collection as <see cref="HidSpec"/> and differs only in carrying an expander --
-        /// see <see cref="LogitechReceiverEnumerator"/>, which is where the "a device exists
-        /// only because it answered" rule lives.
+        /// peripherals rather than being one device itself -- hence the expander, see
+        /// <see cref="LogitechReceiverEnumerator"/>, which is where the "a device exists only
+        /// because it answered" rule lives.
         ///
-        /// Registered *before* HidSpec, because the first matching spec wins and a receiver
-        /// must not be taken for a single device.
+        /// Its collection is <see cref="RECEIVER_USAGE_PAGE"/>, not <see cref="HidSpec"/>'s,
+        /// so the two cannot match the same interface and registration order between them is
+        /// no longer load-bearing. Keeping receivers first anyway costs nothing and keeps the
+        /// rule simple.
         ///
         /// Kept to verified receiver ids even though the ping gate now makes a wrong one
         /// harmless. Widening this to every Logitech receiver is defensible for the first
@@ -138,8 +149,8 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             ReceiverHidSpec = new HidDeviceSpec(
                 LOGITECH_VENDOR_ID,
                 receiverProductIds,
-                HIDPP_USAGE_PAGE,
-                HIDPP_USAGE,
+                RECEIVER_USAGE_PAGE,
+                RECEIVER_USAGE_LONG,
                 0,
                 "Logitech Receiver",
                 new LogitechReceiverEnumerator());

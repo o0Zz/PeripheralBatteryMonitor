@@ -38,20 +38,43 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         public const byte ERROR_HIDPP20 = 0xFF;
         public const byte ERROR_HIDPP10 = 0x8F;
 
-            //Arbitrary byte echoed back by the root feature's ping, which is what makes a
-            //pong tell-apart-able from any other reply.
+            //Arbitrary byte sent in the root ping's third parameter, which a device that
+            //follows the specification echoes back. Not every one does -- see Ping.
         public const byte PING_MAGIC = 0xAA;
 
         /// <summary>
         /// Root feature ping. Cheap way to find out whether anything is actually listening
         /// before spending a timeout per feature probing what it supports -- a device that is
         /// switched off answers nothing at all.
+        ///
+        /// <b>Answering at all is the test; the echoed magic byte is not.</b> A reply only
+        /// reaches here after the transport has matched it against this exact request --
+        /// device index, feature index, and the function byte with our nonzero software id in
+        /// its low nibble -- so by construction it is an answer to this ping and not a
+        /// notification, which is the whole job the echo was doing a second time. Insisting on
+        /// the echo as well cost a real device: the PRO X 2 LIGHTSPEED answers a root ping with
+        /// parameters <c>01 10 00</c> and no echo anywhere in the frame, so every poll declared
+        /// a headset that had just replied to be switched off and never went on to read it.
+        /// A device that is genuinely off still says nothing and still fails here.
         /// </summary>
         public static bool Ping(IHidppTransport transport, byte deviceIndex, int timeoutMs)
         {
             byte[] reply = transport.Request(deviceIndex, FEATURE_ROOT, 0x01,
                 new byte[] { 0x00, 0x00, PING_MAGIC }, timeoutMs);
-            return reply != null && reply.Length > 6 && reply[6] == PING_MAGIC;
+
+            if (reply == null || reply.Length <= 6)
+                return false;
+
+            if (reply[6] != PING_MAGIC)
+            {
+                    //Worth a line rather than silence: the parameters of a pong are
+                    //[protocolMajor][protocolMinor][echo], so a device that puts something else
+                    //there is telling us something about its framing that nobody has decoded.
+                Log.WriteHex("HID++", "ping at index 0x" + deviceIndex.ToString("X2")
+                    + " answered without echoing the magic byte, accepted on the header echo:", reply, 7);
+            }
+
+            return true;
         }
 
         /// <summary>

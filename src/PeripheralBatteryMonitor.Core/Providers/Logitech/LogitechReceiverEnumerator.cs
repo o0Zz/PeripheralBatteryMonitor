@@ -34,12 +34,14 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         private const byte FIRST_INDEX = 1;
         private const byte LAST_INDEX = 6;
 
-            //Short, and deliberately much shorter than the provider's read timeout. A device
-            //that is present answers a ping in well under a millisecond; an absent slot says
-            //nothing at all and costs the whole timeout. Six empty slots is the worst case, so
-            //this number is the one that decides how long the sweep can stall the UI thread:
-            //6 x 80 ms, once per re-probe interval.
-        private const int PING_TIMEOUT_MS = 80;
+            //An occupied slot answers in well under a millisecond *once the peripheral is
+            //awake*; an empty one says nothing and costs the whole timeout, and a receiver has
+            //to forward the ping over the air before either can happen. Six empty slots is the
+            //worst case, so this number decides how long a sweep can stall the UI thread:
+            //6 x 300 ms. It is deliberately several times the 80 ms this started at -- that
+            //was measured against nothing, and a value chosen to bound the stall is worthless
+            //if it also bounds out the answer.
+        private const int PING_TIMEOUT_MS = 300;
 
             //Resolving a feature and reading a name are real exchanges with a device that has
             //already proved it is listening, so they can afford the normal budget.
@@ -50,10 +52,19 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             //through Logitech's own software shows up without restarting this app.
         private static readonly TimeSpan ReprobeInterval = TimeSpan.FromMinutes(15);
 
-            //And how long a *failure* stands. Shorter, because the usual cause is another
-            //process holding the collection open, which clears on its own -- but not so short
-            //that we retry an exclusive open on every single tick.
-        private static readonly TimeSpan RetryAfterFailure = TimeSpan.FromSeconds(60);
+            //How long "the collection would not open" stands. Short, because the usual cause is
+            //another process holding it -- which clears on its own -- but not so short that we
+            //retry an exclusive open on every single tick.
+        private static readonly TimeSpan RetryAfterOpenFailure = TimeSpan.FromSeconds(60);
+
+            //How long "the receiver answered for nobody" stands. This is the expensive case --
+            //six pings that each run to the full timeout -- and the cheap thing to do with an
+            //expensive question is ask it less often, so it is not retried at the open-failure
+            //rate. A peripheral switched on during the gap is found by the poll after it, and
+            //a user who does not want to wait has the tray's Refresh, which forces a re-sweep
+            //(see the <c>force</c> argument). That pairing is the point: the interval can be
+            //this long only because there is a way to skip it.
+        private static readonly TimeSpan RetryAfterEmptySweep = TimeSpan.FromMinutes(5);
 
             //0x0005 DEVICE_NAME: func 0 gives the length, func 1 fetches 16 characters at a
             //time. Two or three transactions, run once per sweep and cached with it -- worth
@@ -70,6 +81,17 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         {
             public DateTime When;
             public List<HidDiscoveredDevice> Devices;
+            public bool OpenFailed;
+
+            public TimeSpan ValidFor
+            {
+                get
+                {
+                    if (OpenFailed)
+                        return RetryAfterOpenFailure;
+                    return Devices.Count == 0 ? RetryAfterEmptySweep : ReprobeInterval;
+                }
+            }
         }
 
             //Keyed on the interface path, which is what identifies one receiver in one USB
@@ -78,22 +100,20 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             //the hardware rather than of any one device object.
         private static readonly Dictionary<string, Sweep> sweeps = new Dictionary<string, Sweep>();
 
-        public List<HidDiscoveredDevice> Expand(HidInterfaceInfo info, HidDeviceSpec spec)
+        public List<HidDiscoveredDevice> Expand(HidInterfaceInfo info, HidDeviceSpec spec, bool force)
         {
             lock (sweeps)
             {
                 Sweep cached;
-                if (sweeps.TryGetValue(info.Path, out cached))
+                if (!force && sweeps.TryGetValue(info.Path, out cached))
                 {
-                    TimeSpan age = DateTime.UtcNow - cached.When;
-                    TimeSpan validFor = cached.Devices.Count == 0 ? RetryAfterFailure : ReprobeInterval;
-                    if (age < validFor)
+                    if (DateTime.UtcNow - cached.When < cached.ValidFor)
                         return cached.Devices;
                 }
 
                 Sweep fresh = new Sweep();
                 fresh.When = DateTime.UtcNow;
-                fresh.Devices = Probe(info, spec);
+                fresh.Devices = Probe(info, spec, out fresh.OpenFailed);
                 sweeps[info.Path] = fresh;
                 return fresh.Devices;
             }
@@ -103,21 +123,38 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         /// Ask each slot whether anything is there. One open handle for the whole sweep -- six
         /// separate opens would cost more than the pings do.
         /// </summary>
-        private static List<HidDiscoveredDevice> Probe(HidInterfaceInfo info, HidDeviceSpec spec)
+        private static List<HidDiscoveredDevice> Probe(HidInterfaceInfo info, HidDeviceSpec spec, out bool openFailed)
         {
             List<HidDiscoveredDevice> found = new List<HidDiscoveredDevice>();
+            openFailed = false;
 
             try
             {
+                    //Say what is being swept before sweeping it. A sweep that finds nothing is
+                    //the shape of every "my Logitech device is missing" report, and without
+                    //this line the log of one is indistinguishable from a log where no receiver
+                    //was ever claimed at all.
+                Log.Write("Logitech", "receiver sweep: " + info);
+
                 using (IHidppTransport hidpp = HidppTransport.Open(info))
                 {
                     if (hidpp == null)
-                        return found;   //cached as a failure, retried in a minute
+                    {
+                        openFailed = true;
+                        return found;   //retried in a minute; the usual cause is vendor software
+                    }
 
                     for (byte index = FIRST_INDEX; index <= LAST_INDEX; index++)
                     {
                         if (!hidpp.Ping(index, PING_TIMEOUT_MS))
+                        {
+                                //Silent means "no device paired here" and "paired but switched
+                                //off" alike -- the receiver answers for neither, and its one
+                                //reply that would tell them apart is a HID++ 1.0 error it sends
+                                //on the short collection, which is a handle this does not hold.
+                            Log.Write("Logitech", "receiver slot " + index + ": silent");
                             continue;
+                        }
 
                         ushort featureId;
                         if (!HasBatteryFeature(hidpp, index, out featureId))
@@ -125,7 +162,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                                 //Paired and awake, but nothing here can read its battery.
                                 //Surfacing it would put a permanent "?" in the tray, which is
                                 //the phantom entry in a different costume.
-                            Log.Write("Logitech", "receiver slot " + index + " answers but implements no battery feature -- not surfaced");
+                            Log.Write("Logitech", "receiver slot " + index + ": answers but implements no battery feature -- not surfaced");
                             continue;
                         }
 
@@ -142,6 +179,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                 Log.Write("Logitech", "receiver sweep failed on " + info.Path + ": " + e.Message);
             }
 
+            Log.Write("Logitech", "receiver sweep found " + found.Count + " device(s)");
             return found;
         }
 
