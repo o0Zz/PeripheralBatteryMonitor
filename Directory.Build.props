@@ -27,7 +27,29 @@
     <Version>0.0.0</Version>
     <AssemblyVersion>0.0.0.0</AssemblyVersion>
     <FileVersion>0.0.0.0</FileVersion>
+
+    <!-- Both of these exist for the banner every log file opens with, which is
+         the first thing read when someone sends one in. Neither is reachable
+         from code any other way: there is no AssemblyInfo.cs to put them in, and
+         the exe ships alone so there is no file beside it to read either.
+
+         BuildDate is deliberately a *date* and not a timestamp. The generated
+         AssemblyInfo.cs is rewritten whenever any of these values changes, and a
+         value carrying the time of day changes on every single build — which
+         would turn every no-op `dotnet build` into a real recompile of both
+         projects. A date identifies a build well enough and costs one recompile
+         a day. CI can pass -p:BuildDate= to pin it. -->
+    <RepositoryUrl>https://github.com/o0Zz/PeripheralBatteryMonitor</RepositoryUrl>
+    <BuildDate Condition="'$(BuildDate)' == ''">$([System.DateTime]::UtcNow.ToString("yyyy-MM-dd"))</BuildDate>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- RepositoryUrl is a NuGet packaging property: the SDK puts it in a .nuspec,
+         not into the assembly. Neither it nor BuildDate reaches a custom attribute
+         without being named here. -->
+    <AssemblyMetadata Include="RepositoryUrl" Value="$(RepositoryUrl)" />
+    <AssemblyMetadata Include="BuildDate" Value="$(BuildDate)" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- Build-time only. Supplies the net48 reference assemblies so the repo

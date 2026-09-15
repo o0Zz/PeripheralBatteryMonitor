@@ -308,6 +308,25 @@ thing.** The tray's *Open log folder* entry only reveals the file; it generates 
   counter is seeded from the file's existing length on open, so appending to a 900 KB log
   rolls after 100 KB and not after another megabyte. If the rename fails anyway the file is
   truncated rather than reopened for append, so the cap is never merely advisory.
+- **Every file opens with a banner, written by `Log.Open` itself**: a separator, then
+  `PeripheralBatteryMonitor <version> (build date: …) - <repository url>`, the OS, the CLR
+  and the culture, and when the file was opened with its UTC offset. Those lines carry no
+  timestamp/thread/category prefix — the block is about the file, not an event in it — and
+  `WriteRaw` deliberately does not roll, since `Roll` is what calls `Open` and rolling there
+  would recurse.
+  - **It is in `Log`, not in `DiagnosticReport`, and that placement is the point.** The old
+    header was written by the startup snapshot: several lines *into* the file, under the
+    traffic that had already opened it, and **once per process** — so a log that rolled
+    during a long session arrived with nothing in it naming the build, the OS or the version
+    that produced any of it, and long sessions are the ones worth reading. Writing it from
+    `Open` makes it the first thing in *every* generation, whatever logs first.
+  - **`BuildDate` and `RepositoryUrl` reach the code as `AssemblyMetadata`** from
+    `Directory.Build.props`. There is no `AssemblyInfo.cs` to put them in and the exe ships
+    alone, so there is no file beside it to read either. `RepositoryUrl` needs the explicit
+    item: on its own it is a NuGet packaging property that never reaches an attribute.
+    **`BuildDate` is a date and not a timestamp on purpose** — the generated `AssemblyInfo.cs`
+    is rewritten whenever a value changes, so a time of day would make every no-op
+    `dotnet build` a real recompile of both projects. CI can pin it with `-p:BuildDate=`.
 - **Every line carries the managed thread id**, because WinRT `DeviceWatcher` callbacks log
   from arbitrary threads and the file interleaves with no other way to see that it has.
 - **Two call sites dedupe on (path, error code)**: the `CreateFile` failure in `HidDevice`
@@ -322,21 +341,52 @@ thing.** The tray's *Open log folder* entry only reveals the file; it generates 
 - **`DiagnosticReport.WriteStartupSnapshot`** covers the one gap the continuous log cannot:
   discovery's enumeration is pre-filtered to *registered vendor ids*, so the poll tick never
   sees the interface nobody claims — which is the shape of almost every report. It
-  enumerates with no filter, once, and then walks that same list a second time for the
-  **vendor-defined collections no spec claimed** (a claimed one is already traced by the read
-  path on every poll), handing each to whichever probe `HidInterfaceProbeRegistry` has for its
-  vendor id — or logging that nobody has one. **That selection is the root file's and the
-  conversation is the vendor's**: `Hid/IHidInterfaceProbe` is the hook, the same split as
-  `IHidDeviceExpander`, and `Providers/HidInterfaceProbeRegistry` is the only file naming a
-  probe, so `DiagnosticReport` names no vendor. `Providers/Logitech/LogitechProbe` is the one
-  built-in. It is
-  `BeginInvoke`d from the `Settings` **constructor**, not `OnLoad` — `SetVisibleCore` keeps
-  that form hidden, so `OnLoad` does not run until the user first opens the window — and it
-  stays on the UI thread because that is where the poll tick runs, so a snapshot and a poll
-  can never talk to one HID collection at once.
+  enumerates with no filter, once, and writes **one table in one walk** — a fixed-width
+  `[  Supported  ]` / `[Not Supported]` marker, the interface, then its path indented to the
+  same width, with the claiming spec's name appended to the right where it cannot disturb the
+  columns. The marker is fixed-width so the question every report comes down to is both
+  scannable and greppable.
+  - **The marker says Supported / Not Supported by the author's decision**, and the four-line
+    legend under the section header is what makes that safe rather than decorative. The
+    narrower fact underneath is that a registered `HidDeviceSpec` claims the collection, and
+    the gap between the two is per *collection*, not per device: one device publishes several
+    and at most one is ever claimed, so a headset that works perfectly still shows several
+    `Not Supported` rows. The legend opens by saying the table lists collections and not
+    devices, for exactly that reason. Do not shorten it, and do not quietly narrow the marker
+    back to `used` or `claimed` — the alternative is recorded in the code comment beside the
+    constants so the decision does not get relitigated from scratch.
+  - **Capitalised, which is also what keeps it greppable.** `CenturionTransport` logs a
+    multi-fragment reply as lowercase `-- not supported`, so a case-sensitive grep for
+    `Not Supported` finds this table and nothing else. `HidDeviceSource`'s per-interface
+    `Discovery` line uses the same two capitalised words, so one grep covers both places a
+    collection is mentioned.
+  - **The probe happens inside that walk**, on the rows that are vendor-defined *and*
+    unclaimed (a claimed collection is already traced by the read path on every poll, and a
+    generic page has no vendor conversation to have), handing each to whichever probe
+    `HidInterfaceProbeRegistry` has for its vendor id — or logging that nobody has one. This
+    was a second loop over the same list, which re-matched every interface and re-printed the
+    description and path already on the row above, so reading a probe result meant matching a
+    device path across two sections by eye. A row and its conversation now sit together, at
+    the cost of the table no longer being one contiguous block when a probe fires — which is
+    the better trade.
+  - `Probe` stays its own method rather than four more lines of that loop **because of its
+    try/catch**: one vendor's probe throwing must cost that row, not the rest of the table.
+  - **That selection is the root file's and the conversation is the vendor's**:
+    `Hid/IHidInterfaceProbe` is the hook, the same split as `IHidDeviceExpander`, and
+    `Providers/HidInterfaceProbeRegistry` is the only file naming a probe, so
+    `DiagnosticReport` names no vendor. `Providers/Logitech/LogitechProbe` is the one
+    built-in. **It writes no header of its own** — the banner above replaced that.
+  - It is `BeginInvoke`d from the `Settings` **constructor**, not `OnLoad` — `SetVisibleCore`
+    keeps that form hidden, so `OnLoad` does not run until the user first opens the window —
+    and it stays on the UI thread because that is where the poll tick runs, so a snapshot and
+    a poll can never talk to one HID collection at once.
 
 ## Conventions worth preserving
 
+- **Do not comment code that explains itself.** A comment earns its place only when a reader cannot recover the *why* from the code: a tricky decision, the obvious alternative and why it was rejected, a vendor quirk, an ordering that looks arbitrary and is load-bearing, a number that was measured rather than chosen. Everything else is noise — restating what the next line does, an XML doc comment that is the method name written as a sentence, a banner over a self-evident block. It costs a reader time, it has to be kept true, and it goes stale silently, which is worse than never having been written.
+  - **Make the code say it instead.** If a comment can be deleted by renaming a variable, extracting a method or naming a constant, do that and delete it. A magic number gets a name, not a footnote.
+  - **This file is where the durable *why* lives**, not a banner above every method. Prefer one paragraph here to the same explanation repeated across three files.
+  - **The heavy commenting already in the tree is not a licence to add more.** New and edited code follows this rule; when you touch a file, leave it no more commented than you found it.
 - One name throughout: `PeripheralBatteryMonitor` is the repo, the solution, the exe and the root namespace of both projects; the two csproj files add only a `.App` / `.Core` suffix. The author's old `oz` prefix (`ozBluetoothLEBatteryMonitor`, `ozPeripheralBatteryMonitor`) has been dropped — don't reintroduce it.
 - **New non-UI code goes in Core, not App.** The App project is the tray icon, the two windows and the registry settings they write; everything about *finding a device and reading its battery* belongs on the other side of the boundary the csproj guard enforces. `Settings.cs` is already the largest file in App and should not grow logic.
 - The app was called `BluetoothLEBatteryMonitor` until it grew past Bluetooth (Logitech LIGHTSPEED devices reach the PC over a USB dongle, no Bluetooth involved). **Do not reintroduce a transport into the product name.** Transport names are still correct *inside* the provider layer — `BluetoothLEBatteryProvider`, `BluetoothBatteryProvider`, `DeviceTransport.BluetoothLowEnergy`, `Providers/BluetoothLE/` — because those really are transport-specific; the app as a whole is not.

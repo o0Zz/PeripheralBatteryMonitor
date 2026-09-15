@@ -99,7 +99,10 @@ namespace PeripheralBatteryMonitor
                     return;
             }
 
-            Log.Write("Discovery", (spec != null ? "claimed by '" + spec.FallbackName + "': " : "claimed by no spec:  ")
+                //The same two words the startup snapshot's table uses, so one grep finds every
+                //mention of a collection in either place -- and capitalised for the same
+                //reason. See DiagnosticReport for what they do and do not claim.
+            Log.Write("Discovery", (spec != null ? "Supported by spec '" + spec.FallbackName + "': " : "Not Supported: ")
                 + info + "  " + info.Path);
         }
 

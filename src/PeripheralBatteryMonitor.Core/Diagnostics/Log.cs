@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 
@@ -59,6 +60,9 @@ namespace PeripheralBatteryMonitor.Diagnostics
             //the restart, and two files is as much history as a support log needs. At the
             //default five-minute poll this is roughly a week.
         private const long MAX_BYTES = 1024 * 1024;
+
+            //Wide enough for the longest banner line, so the block reads as a block.
+        private const string SEPARATOR = "-------------------------------------------------------------------------------";
 
         /// <summary>
         /// <c>%LOCALAPPDATA%\PeripheralBatteryMonitor\log.txt</c>.
@@ -207,6 +211,91 @@ namespace PeripheralBatteryMonitor.Diagnostics
                 //cheap even where AppData is redirected to a network share.
             writer = new StreamWriter(stream, new UTF8Encoding(false));
             writer.AutoFlush = true;
+
+            WriteBanner();
+        }
+
+        /// <summary>
+        /// The header block every generation of the file opens with: which build wrote this,
+        /// onto what, and where to send it. Called from <see cref="Open"/> under
+        /// <see cref="gate"/>, which is what makes it the first thing in the file -- the log
+        /// opens on the first line anything writes, and that line is a HID enumeration from
+        /// the <c>Settings</c> constructor, well before the startup snapshot gets a turn.
+        ///
+        /// <b>Here rather than in <c>DiagnosticReport</c>, which used to print a shorter
+        /// version of it.</b> Two reasons, and the second is the one that matters. It was
+        /// several lines *into* the file, under the traffic that had already opened it. And
+        /// it was written once per process, so a log that rolled during a long session -- the
+        /// long sessions being the ones worth reading -- arrived with nothing in it saying
+        /// what build, what OS or what version produced any of it.
+        ///
+        /// Its own try/catch, because <see cref="EnsureOpen"/>'s treats a throw as "this
+        /// machine cannot be logged to" and latches the whole channel off. A header is never
+        /// worth losing the log over.
+        /// </summary>
+        private static void WriteBanner()
+        {
+            try
+            {
+                Assembly entry = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+                AssemblyName name = entry.GetName();
+
+                string repository = Metadata(entry, "RepositoryUrl");
+                string built = Metadata(entry, "BuildDate");
+
+                WriteRaw(SEPARATOR);
+                WriteRaw(name.Name + " " + name.Version
+                    + (built == null ? "" : " (build date: " + built + ")")
+                    + (repository == null ? "" : " - " + repository));
+                WriteRaw("OS version: " + Environment.OSVersion
+                    + " - 64-bit OS: " + Environment.Is64BitOperatingSystem
+                    + ", 64-bit process: " + Environment.Is64BitProcess);
+                WriteRaw("CLR version: " + Environment.Version
+                    + " - Culture: ui=" + CultureInfo.CurrentUICulture.Name
+                    + ", formatting=" + CultureInfo.CurrentCulture.Name);
+                WriteRaw("Log opened: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)
+                    + " local (UTC" + DateTime.Now.ToString("zzz", CultureInfo.InvariantCulture) + ")"
+                    + " - every line below is local time");
+                WriteRaw(SEPARATOR);
+            }
+            catch (Exception)
+            {
+                    //Reflection over the entry assembly, an attribute that is not there, a
+                    //culture that will not name itself. The log carries on without a header.
+            }
+        }
+
+        /// <summary>
+        /// One <c>AssemblyMetadata</c> value, or null. These come from
+        /// <c>Directory.Build.props</c>; there is no <c>AssemblyInfo.cs</c> in this repo and
+        /// no file beside the exe to read either, so this is the only channel build-time
+        /// facts have into a running copy.
+        /// </summary>
+        private static string Metadata(Assembly assembly, string key)
+        {
+            foreach (AssemblyMetadataAttribute attribute in
+                     (AssemblyMetadataAttribute[])assembly.GetCustomAttributes(typeof(AssemblyMetadataAttribute), false))
+            {
+                if (String.Equals(attribute.Key, key, StringComparison.Ordinal)
+                    && !String.IsNullOrWhiteSpace(attribute.Value))
+                    return attribute.Value;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// A line with no timestamp, thread id or category -- the banner is a block about the
+        /// file as a whole, not an event in it. Called under <see cref="gate"/> with
+        /// <see cref="writer"/> already open.
+        ///
+        /// It does not roll. <see cref="Roll"/> is what calls <see cref="Open"/>, which calls
+        /// the banner, so rolling here would recurse; the next ordinary
+        /// <see cref="Write"/> does it instead, a few dozen bytes late.
+        /// </summary>
+        private static void WriteRaw(string line)
+        {
+            writer.WriteLine(line);
+            written += line.Length + 2;
         }
 
         /// <summary>
