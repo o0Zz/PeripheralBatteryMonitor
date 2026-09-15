@@ -346,15 +346,12 @@ thing.** The tray's *Open log folder* entry only reveals the file; it generates 
   same width, with the claiming spec's name appended to the right where it cannot disturb the
   columns. The marker is fixed-width so the question every report comes down to is both
   scannable and greppable.
-  - **The marker says Supported / Not Supported by the author's decision**, and the four-line
-    legend under the section header is what makes that safe rather than decorative. The
-    narrower fact underneath is that a registered `HidDeviceSpec` claims the collection, and
-    the gap between the two is per *collection*, not per device: one device publishes several
-    and at most one is ever claimed, so a headset that works perfectly still shows several
-    `Not Supported` rows. The legend opens by saying the table lists collections and not
-    devices, for exactly that reason. Do not shorten it, and do not quietly narrow the marker
-    back to `used` or `claimed` — the alternative is recorded in the code comment beside the
-    constants so the decision does not get relitigated from scratch.
+  - **The marker says Supported / Not Supported, by the author's decision** — not `used` or
+    `claimed`, so don't narrow it back. What it actually reports is whether a registered
+    `HidDeviceSpec` claims the collection, and the gap between the two is per *collection*,
+    not per device: one device publishes several and at most one is ever claimed, so a
+    headset that works perfectly still shows several `Not Supported` rows. Anyone reading a
+    pasted log needs to know that; it is recorded here rather than in the file.
   - **Capitalised, which is also what keeps it greppable.** `CenturionTransport` logs a
     multi-fragment reply as lowercase `-- not supported`, so a case-sensitive grep for
     `Not Supported` finds this table and nothing else. `HidDeviceSource`'s per-interface
