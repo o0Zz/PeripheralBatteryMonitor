@@ -4,9 +4,7 @@ namespace PeripheralBatteryMonitor.Hid
 {
     /// <summary>
     /// Describes the one HID interface that stands for a physical device the app should
-    /// track. Needed because a device publishes several collections and because most HID
-    /// devices are not battery powered at all -- discovery only surfaces interfaces a
-    /// provider has declared it can read (see <c>HidDeviceSpecRegistry</c>).
+    /// track.
     ///
     /// Only register a spec for devices that have <b>no</b> Bluetooth association endpoint.
     /// A Bluetooth device (an Apple Magic Mouse, say) is already discovered by the Bluetooth
@@ -87,7 +85,6 @@ namespace PeripheralBatteryMonitor.Hid
             return true;
         }
 
-        /// <summary>Display name for a matched interface: the device's own string, else the fallback.</summary>
         public string NameFor(HidInterfaceInfo info)
         {
             if (info != null && !String.IsNullOrWhiteSpace(info.Product))

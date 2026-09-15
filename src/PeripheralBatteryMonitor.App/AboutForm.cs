@@ -6,19 +6,13 @@ using System.Windows.Forms;
 
 namespace PeripheralBatteryMonitor
 {
-    /// <summary>
-    /// The About box: what this is, what version, and what it can read a battery from.
-    /// Split out of the Settings window, which was carrying an "About" and a "Help"
-    /// group box between the actual settings.
-    /// </summary>
     internal sealed class AboutForm : Form
     {
         private const string ProjectUrl = "https://github.com/o0Zz/PeripheralBatteryMonitor";
 
-            //Not derived from BatteryProviderRegistry: a provider is a way of reading a
-            //battery, not a device family a user would recognise, and it carries no display
-            //name. Keep this in step with the provider list in CLAUDE.md and the README --
-            //and with every Languages/*.lang file, which carry the translated text.
+            //Not derived from BatteryProviderRegistry: a provider is a way of reading a battery,
+            //not a device family a user would recognise. Keep in step with CLAUDE.md, the README
+            //and every Languages/*.lang file.
         private static readonly string[] SupportedDeviceKeys =
         {
             "about.device.ble",
@@ -38,9 +32,8 @@ namespace PeripheralBatteryMonitor
             MaximizeBox = false;
             ShowInTaskbar = false;
 
-                //CenterScreen rather than CenterParent: the owner is the Settings form, which
-                //spends most of its life hidden behind SetVisibleCore, and centering on an
-                //invisible window puts this one in the top-left corner.
+                //CenterScreen, not CenterParent: the owner is the hidden Settings form, and
+                //centering on an invisible window lands this in the top-left corner.
             StartPosition = FormStartPosition.CenterScreen;
 
             AutoScaleMode = AutoScaleMode.Font;
@@ -123,16 +116,12 @@ namespace PeripheralBatteryMonitor
             CancelButton = ok;
         }
 
-            //MaximumSize with a zero height is what turns AutoSize into "wrap at this width and
-            //grow downwards"; WinForms scales MaximumSize with the rest of the form, so the
-            //wrap point follows the display scale.
+            //MaximumSize with a zero height turns AutoSize into "wrap at this width and grow
+            //downwards", and WinForms scales it with the rest of the form.
             //
-            //Measured, not guessed. The supported-device list is the widest thing in this
-            //window, and at 96 DPI its longest line is the Spanish Bluetooth Low Energy entry
-            //at 425 px -- five past the 420 this used to wrap at, so that one bullet spilled a
-            //couple of words onto a second line and broke the list. 600 clears the longest
-            //line in every language with room for a translation that runs longer. Re-measure
-            //before shrinking it.
+            //Measured, not guessed: at 96 DPI the longest line is the Spanish Bluetooth Low
+            //Energy entry at 425 px -- five past the 420 this used to wrap at, which spilled
+            //that bullet onto a second line. Re-measure before shrinking it.
         private const int WrapWidth = 600;
 
         private static Label Paragraph(string text)
@@ -154,8 +143,6 @@ namespace PeripheralBatteryMonitor
             }
             catch (Exception ex)
             {
-                    //No browser, or the shell refused. Worth saying so once, not worth crashing
-                    //the tray app over.
                 MessageBox.Show(this, ProjectUrl + "\n\n" + ex.Message, Strings.Get("about.link.failed"),
                                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }

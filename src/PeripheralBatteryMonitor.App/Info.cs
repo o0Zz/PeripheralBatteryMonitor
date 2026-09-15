@@ -10,9 +10,8 @@ namespace PeripheralBatteryMonitor
         private Func<bool> hideUnknownBattery;
         private Action refreshNow;
 
-            //refreshNow is Settings.RefreshNow: this window shows battery state but does not
-            //own the polling, the same reason hideUnknownBattery arrives as a callback rather
-            //than this form reading the registry itself.
+            //This window renders battery state, it does not own it -- the same reason
+            //hideUnknownBattery arrives as a callback rather than being read from the registry.
         public Info(DeviceManager deviceManager, Func<bool> hideUnknownBattery, Action refreshNow)
         {
             InitializeComponent();
@@ -22,9 +21,9 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// Pushes the current language onto this window. Called by Settings when the picker
-        /// changes, because this popup is created once and kept for the whole session.
-        /// The rows themselves are rebuilt on every Activated, so only the chrome needs it.
+        /// Called by Settings when the picker changes, because this popup is created once and
+        /// kept for the session. The rows are rebuilt on every Activated, so only the chrome
+        /// needs this.
         /// </summary>
         internal void ApplyStrings()
         {
@@ -38,11 +37,9 @@ namespace PeripheralBatteryMonitor
             toolStripRefresh.Text = Strings.Get("button.refresh");
         }
 
-            //Columns are built here rather than in the constructor because ListView
-            //columns are the one thing AutoScaleMode.Font does not scale: their widths
-            //are plain integers the control never revisits. By OnLoad the form has been
-            //auto-scaled, so ClientSize and DeviceDpi are the real ones and the two
-            //fixed columns can be scaled to match.
+            //Here rather than in the constructor: ListView column widths are plain integers
+            //AutoScaleMode.Font never touches, and by OnLoad the form has been auto-scaled, so
+            //ClientSize and DeviceDpi are the real ones.
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
@@ -57,17 +54,15 @@ namespace PeripheralBatteryMonitor
 
             ApplyStrings();
 
-                //Docking resizes the control but not its columns -- a ListView column width is
-                //a plain integer it never revisits, the same reason these are scaled by hand in
-                //the first place. So re-flow them whenever the control's width changes, which
-                //covers both the initial layout and every drag of the window border.
+                //Docking resizes the control but not its columns, so re-flow them whenever the
+                //width changes: the initial layout and every drag of the window border.
             listView1.ClientSizeChanged += delegate { LayoutColumns(); };
             LayoutColumns();
         }
 
         /// <summary>
-        /// Gives the two fixed columns a scaled width and lets the device name absorb whatever
-        /// is left, so the list always spans the window exactly.
+        /// The two fixed columns get a scaled width and the device name absorbs the remainder,
+        /// so the list spans the window exactly.
         /// </summary>
         private void LayoutColumns()
         {
@@ -76,9 +71,8 @@ namespace PeripheralBatteryMonitor
 
             int fixedColumn = Scale(100);
 
-                //ClientSize already excludes a vertical scrollbar when one is showing. The
-                //extra pixel keeps the total just inside the client area, because a device
-                //column sized to the exact remainder produces a horizontal scrollbar.
+                //The extra pixel keeps the total just inside the client area: a device column
+                //sized to the exact remainder produces a horizontal scrollbar.
             int device = listView1.ClientSize.Width - (2 * fixedColumn) - 1;
 
                 //A window dragged narrow must not produce a negative width, which throws.
@@ -117,8 +111,8 @@ namespace PeripheralBatteryMonitor
             Populate();
         }
 
-            //Clicking an item on this form does not deactivate it, so the Deactivate handler
-            //above does not fight the button. Poll first, then rebuild from what came back.
+                //Clicking a ToolStripItem does not deactivate the form, so the Deactivate
+                //handler above does not fight this button.
         private void toolStripRefresh_Click(object sender, EventArgs e)
         {
             if (refreshNow != null)
@@ -128,8 +122,7 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// Rebuilds the rows from the battery state already cached on each device. Reads
-        /// only -- polling is RefreshNow's job, and this runs on every Activated.
+        /// Reads cached state only -- polling is RefreshNow's job. Runs on every Activated.
         /// </summary>
         private void Populate()
         {

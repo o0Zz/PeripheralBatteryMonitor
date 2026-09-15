@@ -7,21 +7,17 @@ using PeripheralBatteryMonitor.Diagnostics;
 namespace PeripheralBatteryMonitor.Hid
 {
     /// <summary>
-    /// An open HID interface, in one of three modes -- <see cref="Open"/>,
-    /// <see cref="OpenForReportRequests"/> and <see cref="OpenForFeatureReports"/>. The
-    /// distinction is not cosmetic: it decides whether the handle can wait for traffic the
-    /// device sends on its own, and what access rights it had to ask for to exist at all.
+    /// An open HID interface, in one of three modes. The distinction is not cosmetic: it
+    /// decides whether the handle can wait for traffic the device sends on its own, and what
+    /// access rights it had to ask for to exist at all.
     ///
-    /// Open one only for the duration of a transaction. The driver keeps a per-handle queue
-    /// of input reports, so a short-lived handle guarantees the first report read is a
-    /// response to what was just written rather than something stale.
+    /// Open one only for the duration of a transaction. The driver keeps a per-handle queue of
+    /// input reports, so a short-lived handle guarantees the first report read answers what was
+    /// just written rather than being stale.
     /// </summary>
     public class HidDevice : IDisposable
     {
         private SafeFileHandle handle;
-
-            //Whether the handle was opened FILE_FLAG_OVERLAPPED, which is what Read/Write need
-            //to be able to time out.
         private readonly bool overlapped;
 
         public int InputReportByteLength { get; private set; }
@@ -38,14 +34,12 @@ namespace PeripheralBatteryMonitor.Hid
         }
 
         /// <summary>
-        /// Open for <see cref="Read"/>/<see cref="Write"/>, i.e. for a request/response
-        /// conversation where the answer arrives as an input report the device sends.
+        /// Open for <see cref="Read"/>/<see cref="Write"/>, where the answer arrives as an
+        /// input report the device sends.
         ///
-        /// Uses FILE_FLAG_OVERLAPPED, because a HID read blocks until the device sends
-        /// something and a silent device (headset switched off, dongle asleep) would otherwise
-        /// hang the caller forever. Since the poll loop runs on the UI thread, every operation
-        /// has to be bounded: the I/O is issued asynchronously, waited on for at most
-        /// <c>timeoutMs</c>, then cancelled. Null when the interface can't be opened.
+        /// FILE_FLAG_OVERLAPPED, because a HID read blocks until the device says something and
+        /// a silent one (headset off, dongle asleep) would hang the UI thread forever. Each
+        /// operation is issued async, waited on, then cancelled.
         /// </summary>
         public static HidDevice Open(HidInterfaceInfo info)
         {
@@ -53,15 +47,13 @@ namespace PeripheralBatteryMonitor.Hid
         }
 
         /// <summary>
-        /// Open for <see cref="GetInputReport"/> only -- asking the device for a report by id,
-        /// rather than waiting for one.
+        /// Open for <see cref="GetInputReport"/> only -- asking for a report by id rather than
+        /// waiting for one.
         ///
-        /// Deliberately *not* overlapped. <c>HidD_GetInputReport</c> issues a synchronous
-        /// DeviceIoControl with a NULL OVERLAPPED, which Windows documents as unreliable on a
-        /// handle opened FILE_FLAG_OVERLAPPED ("can incorrectly report that the operation is
-        /// complete"). There is no timeout to lose by dropping it: this call goes out on the
-        /// control pipe and returns, it never waits on device traffic.
-        /// Null when the interface can't be opened.
+        /// Deliberately *not* overlapped: HidD_GetInputReport issues a synchronous
+        /// DeviceIoControl with a NULL OVERLAPPED, which Windows documents as unreliable on an
+        /// overlapped handle ("can incorrectly report that the operation is complete"). There
+        /// is no timeout to lose -- the call never waits on device traffic.
         /// </summary>
         public static HidDevice OpenForReportRequests(HidInterfaceInfo info)
         {
@@ -70,18 +62,15 @@ namespace PeripheralBatteryMonitor.Hid
 
         /// <summary>
         /// Open for <see cref="GetFeature"/>/<see cref="SetFeature"/> only -- a vendor protocol
-        /// carried on the control pipe rather than in the report streams.
+        /// on the control pipe rather than in the report streams.
         ///
-        /// Opened with desired access **0**, and that is the whole point of this mode rather
-        /// than an optimisation. A vendor protocol often lives on a collection Windows opens
-        /// exclusively for itself -- Razer's sits behind the mouse and consumer-control
-        /// collections -- where CreateFile with GENERIC_READ|GENERIC_WRITE fails outright with
-        /// ERROR_ACCESS_DENIED. The IOCTLs behind HidD_GetFeature/HidD_SetFeature are declared
-        /// FILE_ANY_ACCESS, so a query-only handle drives them perfectly well; it just cannot
-        /// do ReadFile/WriteFile, which this mode does not offer. Not overlapped, for the same
-        /// reason <see cref="OpenForReportRequests"/> is not: these calls go out on the control
-        /// pipe and return, they never wait on device traffic.
-        /// Null when the interface can't be opened.
+        /// Desired access **0**, and that is the point of this mode rather than an
+        /// optimisation. Such a protocol often sits on a collection Windows opens exclusively
+        /// for itself -- Razer's sits on consumer-control -- where CreateFile with
+        /// GENERIC_READ|GENERIC_WRITE fails outright with ERROR_ACCESS_DENIED. The IOCTLs
+        /// behind HidD_GetFeature/HidD_SetFeature are declared FILE_ANY_ACCESS, so a
+        /// query-only handle drives them; it just cannot ReadFile/WriteFile, which this mode
+        /// does not offer.
         /// </summary>
         public static HidDevice OpenForFeatureReports(HidInterfaceInfo info)
         {
@@ -101,7 +90,7 @@ namespace PeripheralBatteryMonitor.Hid
 
             if (h.IsInvalid)
             {
-                    //Captured before anything else can overwrite the thread's last error.
+                    //Before anything else can overwrite the thread's last error.
                 int error = Marshal.GetLastWin32Error();
                 LogOpenFailureOnce(info.Path, error, desiredAccess);
                 h.Dispose();
@@ -112,10 +101,9 @@ namespace PeripheralBatteryMonitor.Hid
             return new HidDevice(h, info, overlapped);
         }
 
-            //The last error each path failed with, so a handle that keeps failing the same
-            //way says so once instead of once per poll tick for as long as the app runs. A
-            //*change* is the event worth recording -- including the change to success, which
-            //is why the entry is cleared on a good open.
+            //The last error each path failed with, so a handle that keeps failing the same way
+            //says so once instead of once per poll tick for the life of the app. A *change* is
+            //the event worth recording, including the change back to success.
         private static readonly Dictionary<string, int> lastOpenError = new Dictionary<string, int>();
 
         private static void LogOpenFailureOnce(string path, int error, uint desiredAccess)
@@ -128,10 +116,9 @@ namespace PeripheralBatteryMonitor.Hid
                 lastOpenError[path] = error;
             }
 
-                //Worth naming the code rather than just failing: ERROR_ACCESS_DENIED (5) means
-                //another process holds the collection exclusively -- vendor software such as
-                //G HUB does this -- while ERROR_FILE_NOT_FOUND (2) means the dongle went away
-                //between enumeration and here. The two need opposite advice, and neither is
+                //The code matters: ERROR_ACCESS_DENIED (5) means another process holds the
+                //collection exclusively (G HUB and friends), ERROR_FILE_NOT_FOUND (2) that the
+                //dongle went away between enumeration and here. Opposite advice, and neither is
                 //visible from "no battery reading".
             Log.Write("Hid", "open failed (error " + error
                 + ", access 0x" + desiredAccess.ToString("X") + ") on " + path);
@@ -147,9 +134,9 @@ namespace PeripheralBatteryMonitor.Hid
         }
 
         /// <summary>
-        /// Send an output report. <paramref name="report"/> must be
-        /// <see cref="OutputReportByteLength"/> bytes long with the report id in byte 0 --
-        /// the HID class driver rejects anything shorter and trims the padding itself.
+        /// Send an output report. Must be exactly <see cref="OutputReportByteLength"/> bytes
+        /// with the report id in byte 0 -- the class driver rejects anything shorter and trims
+        /// the padding itself.
         /// </summary>
         public bool Write(byte[] report, int timeoutMs)
         {
@@ -189,8 +176,8 @@ namespace PeripheralBatteryMonitor.Hid
         }
 
         /// <summary>
-        /// Wait for one input report. Returns false on timeout, which for a HID device is a
-        /// normal outcome (nothing to say) rather than an error.
+        /// Wait for one input report. False on timeout, which for a HID device is a normal
+        /// outcome -- nothing to say -- rather than an error.
         /// </summary>
         public bool Read(byte[] buffer, int timeoutMs, out int bytesRead)
         {
@@ -238,9 +225,8 @@ namespace PeripheralBatteryMonitor.Hid
         }
 
         /// <summary>
-        /// Ask the device for an input report by id (GET_REPORT on the control pipe) instead
-        /// of waiting for it to be sent. <paramref name="report"/> carries the requested id
-        /// in byte 0. Unlike <see cref="Read"/> this never blocks on device traffic.
+        /// GET_REPORT on the control pipe -- byte 0 carries the id being asked for. Unlike
+        /// <see cref="Read"/> this never blocks on device traffic.
         /// </summary>
         public bool GetInputReport(byte[] report)
         {
@@ -250,10 +236,9 @@ namespace PeripheralBatteryMonitor.Hid
         }
 
         /// <summary>
-        /// Send a feature report (SET_REPORT on the control pipe). <paramref name="report"/>
-        /// must be <see cref="FeatureReportByteLength"/> bytes with the report id in byte 0 --
-        /// the class driver validates the length against the report descriptor and fails the
-        /// call rather than truncating.
+        /// SET_REPORT on the control pipe. Must be exactly <see cref="FeatureReportByteLength"/>
+        /// bytes with the report id in byte 0 -- the class driver validates the length against
+        /// the report descriptor and fails the call rather than truncating.
         /// </summary>
         public bool SetFeature(byte[] report)
         {
@@ -262,10 +247,7 @@ namespace PeripheralBatteryMonitor.Hid
             return HidNative.HidD_SetFeature(handle, report, report.Length);
         }
 
-        /// <summary>
-        /// Read a feature report back (GET_REPORT on the control pipe). Same size rule as
-        /// <see cref="SetFeature"/>; byte 0 carries the report id being asked for.
-        /// </summary>
+        /// <summary>GET_REPORT for a feature report. Same size rule as <see cref="SetFeature"/>.</summary>
         public bool GetFeature(byte[] report)
         {
             if (report == null || report.Length != FeatureReportByteLength)
@@ -273,7 +255,6 @@ namespace PeripheralBatteryMonitor.Hid
             return HidNative.HidD_GetFeature(handle, report, report.Length);
         }
 
-        /// <summary>The HID serial number string, or "" when the device doesn't expose one.</summary>
         public string GetSerialNumber()
         {
             byte[] buffer = new byte[HidNative.STRING_BYTES];
@@ -283,10 +264,10 @@ namespace PeripheralBatteryMonitor.Hid
         }
 
         /// <summary>
-        /// Refuse timed I/O on a non-overlapped handle rather than doing it unbounded. Without
-        /// FILE_FLAG_OVERLAPPED, ReadFile never returns ERROR_IO_PENDING, so the wait-then-cancel
-        /// dance below cannot happen and the call would block for as long as the device stays
-        /// silent -- on the UI thread, that is a hang, not a slow poll.
+        /// Refuse timed I/O on a non-overlapped handle rather than doing it unbounded: without
+        /// FILE_FLAG_OVERLAPPED, ReadFile never returns ERROR_IO_PENDING, so the
+        /// wait-then-cancel above cannot happen and the call blocks for as long as the device
+        /// stays silent. On the UI thread that is a hang, not a slow poll.
         /// </summary>
         private bool EnsureOverlapped(string operation)
         {

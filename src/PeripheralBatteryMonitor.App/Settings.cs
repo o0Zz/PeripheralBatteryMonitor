@@ -14,13 +14,12 @@ namespace PeripheralBatteryMonitor
         /// <summary>Where every user setting lives. Program reads Language from here too.</summary>
         internal const string RegistryPath = "SOFTWARE\\PeripheralBatteryMonitor";
 
-            //Auto-start is the one setting that is not ours to name: Windows reads this key,
-            //and the value name is what identifies our entry in it.
+            //Not ours to name: Windows reads this key.
         private const string AutoStartPath = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
         private const string AutoStartValue = "PeripheralBatteryMonitor";
 
-            //How long the radio stays off in a Bluetooth restart. Long enough for Windows to
-            //tear the stack down and let the devices notice, short enough to sit through.
+            //Long enough for Windows to tear the stack down and the devices to notice, short
+            //enough to sit through.
         private const int BluetoothRestartDowntimeMs = 5000;
 
         private DeviceManager deviceManager = null;
@@ -37,13 +36,10 @@ namespace PeripheralBatteryMonitor
         {
             InitializeComponent();
 
-                //Force the form handle so worker-thread BeginInvoke can post to UI thread
             IntPtr _ = this.Handle;
 
-                //First of all create entry for settings
             Registry.CurrentUser.CreateSubKey(RegistryPath);
 
-                //Reload settings
             using (RegistryKey run = Registry.CurrentUser.OpenSubKey(AutoStartPath, false))
             {
                 if (run != null)
@@ -58,21 +54,16 @@ namespace PeripheralBatteryMonitor
                 checkBoxOneIconPerDevice.Checked = ((int)rk.GetValue("OneIconPerDevice", 0)) != 0;
                 checkBoxHideUnknownBattery.Checked = ((int)rk.GetValue("HideUnknownBattery", 0)) != 0;
 
-                    //Program already applied this language before the window was built; the
-                    //picker only has to show which one it was.
                 FillLanguages(Convert.ToString(rk.GetValue("Language", "")));
             }
 
             ApplyStrings();
 
-                //Asked once, here, rather than every time the menu opens: enumerating radios
-                //is a WinRT call, and the one moment the user reaches for this entry is the
-                //moment the stack has stopped answering -- a check on Opening would then hang
-                //the very menu it is decorating. A machine with no radio at all is not going
-                //to grow one mid-session.
+                //Once here rather than on every menu open: enumerating radios is a WinRT call,
+                //and the moment the user reaches for this entry is the moment the stack has
+                //stopped answering -- a check on Opening would hang the menu it decorates.
             restartBluetoothToolStripMenuItem.Visible = BluetoothRadio.IsAvailable();
 
-                //Instantiate everything
             deviceManager = new DeviceManager(new DeviceNotification(this));
             deviceManager.scan(checkBoxScanForEver.Checked);
 
@@ -85,24 +76,16 @@ namespace PeripheralBatteryMonitor
 
             isInitializing = false;
 
-                //Posted, not called, and posted from here rather than from OnLoad -- which
-                //never runs until the user opens this window, because SetVisibleCore keeps the
-                //form hidden for the whole session otherwise. The handle was forced above, so
-                //BeginInvoke has somewhere to post to and the snapshot runs on the first turn
-                //of the message loop.
-                //
-                //It is posted because it opens every HID interface on the machine and probes
-                //the unrecognised Logitech ones, which on an unlucky machine is seconds of
-                //work; running it inline would hold up the tray icon appearing, on exactly the
-                //machine whose owner already suspects the app is broken. Posting also keeps it
-                //on the UI thread, which is where the poll tick runs, so a snapshot and a poll
-                //can never be talking to one HID collection at the same time.
+                //From here rather than OnLoad, which never runs while SetVisibleCore keeps this
+                //form hidden. Posted rather than called because it opens every HID interface on
+                //the machine -- seconds of work on an unlucky one -- and running it inline would
+                //hold up the tray icon appearing. Posting also keeps it on the UI thread, where
+                //the poll tick runs, so the two can never talk to one HID collection at once.
             BeginInvoke((Action)DiagnosticReport.WriteStartupSnapshot);
         }
 
-            //Auto-scaling has happened by the time OnLoad runs, which is what makes the
-            //font measurements below the real ones. Same reason Info builds its ListView
-            //columns here rather than in its constructor.
+            //Auto-scaling has happened by OnLoad, which is what makes the font measurements
+            //below the real ones.
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
@@ -110,12 +93,10 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// Repairs the two rows that pair a caption with an input control, both of which
-        /// WinForms gets wrong above 100% and neither of which can be fixed with a constant.
-        ///
-        /// The captions carry <c>Anchor.None</c> so a left-to-right FlowLayoutPanel centres
-        /// them vertically on whatever the input control turns out to be. That only works if
-        /// the input control's own geometry is honest, and for these two it is not:
+        /// Repairs the two captioned input rows, which WinForms gets wrong above 100% and
+        /// neither of which can be fixed with a constant. The caption carries
+        /// <c>Anchor.None</c> so the FlowLayoutPanel centres it on the input control, which only
+        /// works if that control's own geometry is honest -- and for these two it is not:
         ///
         /// <list type="bullet">
         /// <item><description><b>NumericUpDown is a ContainerControl</b>, so it runs its own
@@ -135,12 +116,9 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// Sizes the language box from its own font: height from what the control says it
-        /// wants, width from the widest entry it has to show.
-        ///
-        /// Nothing here is a pixel constant, and that is the point. A hardcoded 160x21 was
-        /// right at 100% and wrong at every other scale, and it would also have clipped a
-        /// language whose "same as Windows" wording runs long.
+        /// Height from what the control says it wants, width from its widest entry. No pixel
+        /// constant anywhere, which is the point: a hardcoded 160x21 was right at 100% and wrong
+        /// at every other scale, and clipped a long "same as Windows" translation besides.
         /// </summary>
         private void FitLanguageBox()
         {
@@ -157,14 +135,14 @@ namespace PeripheralBatteryMonitor
                 }
             }
 
-                //Room for the drop-down arrow, which is a system metric and so already scaled.
+                //The drop-down arrow is a system metric, so already scaled.
             comboBoxLanguage.Width = widest + SystemInformation.VerticalScrollBarWidth + comboBoxLanguage.Margin.Horizontal;
         }
 
         /// <summary>
-        /// Persists one setting. There is no OK/Cancel on this form -- every handler writes the
-        /// moment its control changes, so this is the whole of persistence, which is reason
-        /// enough to have it in one place that cannot forget to close the key.
+        /// There is no OK/Cancel on this form: every handler writes the moment its control
+        /// changes, so this is the whole of persistence, in one place that cannot forget to
+        /// close the key.
         /// </summary>
         private static void SaveSetting(string name, object value, RegistryValueKind kind = RegistryValueKind.DWord)
         {
@@ -199,15 +177,13 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// Polls every device now instead of waiting for the next tick. Shared by the tray
-        /// menu's Refresh entry and the device list's Refresh button, so both do exactly the
-        /// same thing -- which for the list means the tray icon and tooltip update with it.
+        /// Shared by the tray menu's Refresh entry and the device list's Refresh button, so
+        /// refreshing from the list updates the tray icon and tooltip too.
         /// </summary>
         internal void RefreshNow()
         {
-                //A poll is I/O on the UI thread -- a single GATT read allows itself 5 s --
-                //so say so, rather than letting the window look frozen. Re-entry needs no
-                //guard here: UpdateIcon already drops a nested call.
+                //A poll is real I/O on the UI thread -- a single GATT read allows itself 5 s.
+                //Re-entry needs no guard: UpdateIcon already drops a nested call.
             Cursor previous = Cursor.Current;
             Cursor.Current = Cursors.WaitCursor;
             try
@@ -238,17 +214,16 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// Shows the user the log file. It is always being written, so there is nothing to
-        /// generate here and nothing to wait for -- this entry exists only so that "send me
-        /// the log" does not have to start with reciting a path.
+        /// The log is always being written, so there is nothing to generate and nothing to wait
+        /// for; this entry exists so "send me the log" need not start by reciting a path.
         /// </summary>
         private void openLogToolStripMenuItem_Click(object sender, EventArgs e)
         {
             string path = Log.FilePath;
             try
             {
-                    //Select rather than open: the reporter is being asked to attach this file,
-                    //not to read it, and Explorer is where they can drag it from.
+                    //Select rather than open: the reporter is being asked to attach the file,
+                    //not read it.
                 System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\"");
             }
             catch (Exception ex)
@@ -259,16 +234,13 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// Switches the Bluetooth radio off, waits, and switches it back on -- the shortcut
-        /// for what would otherwise be a trip to the Windows Settings toggle, which is the
-        /// only way out of a stack that has wedged. See <see cref="BluetoothRadio"/> for why
-        /// the radio and not the Bluetooth service.
+        /// The shortcut for a trip to the Windows Settings toggle, which is the only way out of
+        /// a wedged stack.
         ///
-        /// Progress is reported with balloons rather than a window, and deliberately not
-        /// through <see cref="Notify"/>: that honours the notifications checkbox, which is
-        /// about a device reaching 20% and not about feedback for something the user just
-        /// clicked. A failure gets a message box, because it leaves the radio off and is
-        /// worth more than a balloon that may never be shown.
+        /// Progress is a balloon but deliberately not through <see cref="Notify"/>: that honours
+        /// the notifications checkbox, which is about a device reaching 20% and not about
+        /// feedback for something the user just clicked. A failure gets a message box, because
+        /// it leaves the radio off and must not be droppable.
         /// </summary>
         private void RestartBluetooth()
         {
@@ -277,8 +249,8 @@ namespace PeripheralBatteryMonitor
 
             try
             {
-                    //On the UI thread on purpose: this is the one call that can put a consent
-                    //prompt on screen, so it wants a thread with a message loop.
+                //On the UI thread on purpose: the one call here that can put a consent prompt
+                //on screen, so it wants a message loop.
                 BluetoothRadio.RequestAccess();
             }
             catch (Exception error)
@@ -290,19 +262,16 @@ namespace PeripheralBatteryMonitor
             restartingBluetooth = true;
             restartBluetoothToolStripMenuItem.Enabled = false;
 
-                //Hold the poll off for the duration. A tick that lands while the radio is
-                //down would sit on the UI thread waiting out a 30 s GATT connect timeout per
-                //BLE device -- and it has nothing to read anyway. RefreshNow at the end
-                //starts it again; the failure path below does it by hand.
+                //A tick landing while the radio is down would wait out a 30 s GATT connect
+                //timeout per BLE device, on the UI thread, to read nothing. RefreshNow restarts
+                //it at the end; the failure path below does it by hand.
             IconTimer.Stop();
 
             NotifyIcon.ShowBalloonTip(300, Strings.Get("app.name"), Strings.Format("notify.bluetoothRestart.started", BluetoothRestartDowntimeMs / 1000), ToolTipIcon.Info);
 
-                //The radio is off for seconds, and this thread is the one that draws the tray
-                //icon and its menu: doing the wait here would freeze both for the whole
-                //downtime and have Windows call the app hung. Completion hops back through
-                //BeginInvoke -- the constructor forces the handle so this is safe from a
-                //worker thread.
+                //Sleeping the downtime on this thread would freeze the tray icon and its menu
+                //and have Windows declare the app hung. Completion returns through BeginInvoke;
+                //the constructor forces the handle so that is safe from a worker.
             ThreadPool.QueueUserWorkItem(delegate
             {
                 Exception failure = null;
@@ -315,9 +284,8 @@ namespace PeripheralBatteryMonitor
                     failure = error;
                 }
 
-                    //Exit is reachable during the downtime, and posting to a form that has
-                    //gone would throw on this thread -- where nothing catches it and the
-                    //process dies after the user already asked it to quit.
+                    //Exit is reachable during the downtime, and posting to a dead form would
+                    //throw on a thread where nothing catches it.
                 try
                 {
                     if (!IsDisposed)
@@ -340,10 +308,9 @@ namespace PeripheralBatteryMonitor
                 return;
             }
 
-                //Every Bluetooth device dropped off while the radio was down, and a watcher
-                //that had already finished its enumeration will not report them coming back
-                //-- so discovery starts over instead of waiting for a scan that is not going
-                //to happen. HID devices are unaffected; the poll tick re-snapshots those.
+                //Every Bluetooth device dropped off while the radio was down, and a watcher that
+                //had already finished enumerating never reports them returning. HID devices need
+                //nothing -- the poll tick re-snapshots those.
             deviceManager.stopScan();
             deviceManager.scan(checkBoxScanForEver.Checked);
 
@@ -359,10 +326,8 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// The one line worth showing the user out of an exception. Everything in
-        /// <see cref="BluetoothRadio"/> waits on a WinRT task, and a task that faulted
-        /// reports it as an AggregateException -- whose own Message is a sentence about
-        /// aggregate exceptions rather than about Bluetooth.
+        /// A faulted WinRT task arrives as an AggregateException, whose own Message is a sentence
+        /// about aggregate exceptions rather than about Bluetooth.
         /// </summary>
         private static string DescribeFailure(Exception error)
         {
@@ -391,11 +356,9 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// One poll pass. <paramref name="rediscover"/> marks the pass the user asked for, and
-        /// carries that distinction into discovery: parts of it cache -- a Logitech receiver
-        /// sweep costs six radio round trips, so it does not run every tick -- and a Refresh
-        /// that served a cached answer would be a button that does nothing, which is precisely
-        /// how a missing device gets reported as one that cannot be found at all.
+        /// <paramref name="rediscover"/> marks the pass the user asked for and carries that into
+        /// discovery, where a receiver sweep costs six radio round trips and so does not run
+        /// every tick. A Refresh serving a cached answer is a button that does nothing.
         /// </summary>
         public void UpdateIcon(bool rediscover)
         {
@@ -405,29 +368,27 @@ namespace PeripheralBatteryMonitor
                 return;
             }
 
-                //refreshHidDevices below reports new devices synchronously, and OnNewDevice
-                //calls back into here. The nested call has nothing left to do -- the device is
-                //already in the dictionary this pass is about to walk -- so drop it.
+                //refreshHidDevices reports new devices synchronously and OnNewDevice calls back
+                //into here. The nested call has nothing left to do: the device is already in the
+                //dictionary this pass is about to walk.
             if (updatingIcon)
                 return;
 
             updatingIcon = true;
             try
             {
-                    //USB HID devices have no watcher behind them; re-snapshot them each tick
-                    //so plugging or unplugging a dongle is picked up.
+                    //No watcher behind these, so re-snapshot each tick to catch a dongle being
+                    //plugged or unplugged.
                 deviceManager.refreshHidDevices(rediscover);
 
                 ConcurrentDictionary<string, BatteryDevice> deviceDict = deviceManager.getDeviceList();
 
-                    //Request to update battery level
                 foreach (BatteryDevice device in deviceDict.Values)
                     device.UpdateBatteryLevel();
 
-                    //Per-device mode can now come up empty even with devices tracked -- every
-                    //one of them may be disconnected. Falling through to the single icon then
-                    //is not cosmetic: with no per-device icon shown and the main one hidden,
-                    //the app would have no tray presence at all and no way to reach its menu.
+                    //Per-device mode can come up empty with devices still tracked -- every one
+                    //disconnected. Falling through matters: with no per-device icon and the main
+                    //one hidden, the app has no tray presence and no way to reach its menu.
                 if (!checkBoxOneIconPerDevice.Checked || deviceDict.IsEmpty || !UpdateIconPerDevice(deviceDict))
                     UpdateSingleIcon(deviceDict);
             }
@@ -438,14 +399,12 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// May the tray speak for this device on this pass?
+        /// A disconnected device keeps its last reading -- deliberately, and the Info window
+        /// still lists it -- but the tray must not report it: a mouse switched off at 20% would
+        /// hold the icon red and occupy a tooltip line for as long as it stays paired, hiding
+        /// whatever is actually in use.
         ///
-        /// A disconnected device keeps its last reading -- that is deliberate, and the Info
-        /// window still lists it -- but the tray must not report it. Left in, a mouse switched
-        /// off at 20% holds the icon red and occupies a tooltip line for as long as it stays
-        /// paired, hiding whatever is actually in use.
-        ///
-        /// Shared by both icon modes so the two cannot drift apart on which devices count.
+        /// Shared by both icon modes so they cannot drift apart on which devices count.
         /// </summary>
         private bool TrayReports(BatteryDevice device)
         {
@@ -455,7 +414,6 @@ namespace PeripheralBatteryMonitor
             return device.GetBatteryLevel() >= 0 || !checkBoxHideUnknownBattery.Checked;
         }
 
-        /// <summary>One device's tooltip line. Both icon modes word it the same way.</summary>
         private static TrayTooltip.Line TrayLine(string name, int level)
         {
             return new TrayTooltip.Line(name, (level < 0)
@@ -495,11 +453,9 @@ namespace PeripheralBatteryMonitor
                 NotifyLowBattery(kv.Key, name, level);
             }
 
-                //The tooltip holds 63 characters and a device list can easily exceed that.
                 //TrayTooltip.Fit normally keeps every reading by shortening names; this order is
                 //the fallback priority only when even the shortest marked names cannot all fit.
-                //The lowest known battery comes first because that is what the icon represents;
-                //devices still reading "?" carry less information and queue behind it.
+                //Lowest battery first, because that is what the icon is showing.
             known.Sort((a, b) => a.Key.CompareTo(b.Key));
 
             List<TrayTooltip.Line> lines = new List<TrayTooltip.Line>(known.Count + unknown.Count);
@@ -509,9 +465,8 @@ namespace PeripheralBatteryMonitor
 
             NotifyIcon.Icon = GetIconForBatteryLevel(theLowestBattery);
 
-                //theLowestBattery is still its 100 sentinel here, so the icon reads full. Say
-                //so in words rather than leaving an empty tooltip, which is indistinguishable
-                //from a full battery.
+                //theLowestBattery is still its 100 sentinel, so the icon reads full. An empty
+                //tooltip would be indistinguishable from a genuinely full battery.
             if (lines.Count == 0)
                 lines.Add(new TrayTooltip.Line(null, Strings.Get("tray.noDevice")));
 
@@ -519,9 +474,8 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// One tray icon per device. Returns false when it ended up showing none -- every
-        /// device disconnected, or every one filtered out -- so the caller can put the single
-        /// icon back rather than leave the app with no tray presence.
+        /// False when it showed none -- every device disconnected or filtered out -- so the
+        /// caller can put the single icon back rather than leave the app with no tray presence.
         /// </summary>
         private bool UpdateIconPerDevice(ConcurrentDictionary<string, BatteryDevice> deviceDict)
         {
@@ -555,11 +509,10 @@ namespace PeripheralBatteryMonitor
                 NotifyLowBattery(kv.Key, name, level);
             }
 
-                //Drop every icon this pass did not just paint. Keyed on what was shown, not
-                //on what the manager still tracks: a device that disconnects (or that
-                //"hide unknown battery" now filters out) stays in the dictionary, so the old
-                //ContainsKey test left its icon on the tray showing a stale percentage for
-                //ever. Devices that disappeared from the manager are covered by the same rule.
+                //Keyed on what was painted this pass, not on what the manager still tracks: a
+                //disconnected device (or one "hide unknown battery" now filters) stays in the
+                //dictionary, so a ContainsKey test left its icon showing a stale percentage for
+                //ever.
             foreach (string id in new List<string>(deviceIcons.Keys))
             {
                 if (shown.Contains(id))
@@ -569,9 +522,8 @@ namespace PeripheralBatteryMonitor
                 deviceIcons[id].Dispose();
                 deviceIcons.Remove(id);
 
-                    //Only forget the low-battery latch when the device is gone for good.
-                    //Clearing it on a mere disconnect would re-fire the balloon every time a
-                    //flat device wakes up.
+                    //Only when the device is gone for good: clearing the latch on a mere
+                    //disconnect would re-fire the balloon every time a flat device wakes up.
                 if (!deviceDict.ContainsKey(id))
                     deviceLowBatteryNotificationDone.Remove(id);
             }
@@ -641,15 +593,14 @@ namespace PeripheralBatteryMonitor
 
         private void buttonClose_Click(object sender, EventArgs e)
         {
-                //Hide rather than Close: closing is what exiting means here, and
-                //DeviceListForm_FormClosing would only cancel it and hide anyway.
+                //Hide rather than Close: closing is what exiting means here.
             Hide();
         }
 
         private static void ShowAbout()
         {
-                //No owner: this form is usually hidden by SetVisibleCore, and ShowDialog
-                //refuses an invisible owner outright.
+                //No owner: the owner would be the hidden Settings form, and ShowDialog refuses
+                //an invisible one.
             using (AboutForm about = new AboutForm())
                 about.ShowDialog();
         }
@@ -719,25 +670,20 @@ namespace PeripheralBatteryMonitor
 
             Strings.Use(code);
 
-                //Applied live rather than on next launch, which the panel-based layout makes
-                //possible: every label is AutoSize inside an AutoSize form, so the window
-                //re-measures itself around the new text instead of clipping it. The Info popup
-                //is long-lived too and has to be told; the About box is built fresh each time
-                //it opens, so it needs nothing.
+                //Live rather than on next launch, which only works because of the panel layout:
+                //every label is AutoSize inside an AutoSize form, so the window re-measures
+                //itself around the new text. Info is long-lived too and has to be told; About is
+                //built fresh each time and needs nothing.
             ApplyStrings();
             FitLanguageBox();
             infoForm.ApplyStrings();
 
-                //The tray tooltip is built from translated text, so it stays stale until the
-                //next poll unless it is rebuilt now.
+                //The tray tooltip is built from translated text.
             UpdateIcon();
         }
 
-        /// <summary>Offers every language embedded in the exe, plus following Windows.</summary>
         private void FillLanguages(string savedCode)
         {
-                //First entry, and the default: the right answer for most people is the language
-                //their computer is already in.
             comboBoxLanguage.Items.Add(new Strings.Language("", Strings.Get("settings.language.auto")));
 
             foreach (Strings.Language language in Strings.Available)
@@ -756,10 +702,7 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// Pushes the current language onto every piece of text this window owns, including the
-        /// tray menu.
-        ///
-        /// The designer keeps English literals so the WinForms designer still renders a sane
+        /// The designer files keep English literals so the WinForms designer still renders a sane
         /// form, and they double as the last-resort fallback; this overwrites them right after
         /// InitializeComponent and again whenever the language changes.
         /// </summary>
@@ -795,8 +738,7 @@ namespace PeripheralBatteryMonitor
             buttonAbout.Text = Strings.Get("button.about");
             buttonClose.Text = Strings.Get("button.close");
 
-                //The "same as Windows" entry is the one combo item whose label is translated;
-                //the rest name themselves and must not be.
+                //The one combo item whose label is translated; the rest name themselves.
             if (comboBoxLanguage.Items.Count > 0)
             {
                 int selected = comboBoxLanguage.SelectedIndex;

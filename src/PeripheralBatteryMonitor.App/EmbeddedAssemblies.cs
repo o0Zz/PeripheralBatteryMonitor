@@ -11,16 +11,14 @@ namespace PeripheralBatteryMonitor
     /// </summary>
     internal static class EmbeddedAssemblies
     {
-        /// <summary>Matches the <c>LogicalName</c> assigned by the csproj target.</summary>
         private const string Prefix = "PeripheralBatteryMonitor.Embedded.";
 
-        /// <summary>Assemblies already materialised, keyed by simple name.</summary>
         private static readonly Dictionary<string, Assembly> Resolved =
             new Dictionary<string, Assembly>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-        /// Hooks the resolver up. Must run before any method that mentions a type
-        /// from an embedded assembly is JIT-compiled.
+        /// Must run before any method mentioning a type from an embedded assembly is
+        /// JIT-compiled.
         /// </summary>
         internal static void Install()
         {
@@ -31,9 +29,8 @@ namespace PeripheralBatteryMonitor
         {
             string name = new AssemblyName(args.Name).Name;
 
-                //Satellite lookups are expected to miss in a single-language app, and
-                //the CLR asks for them on the first localised resource access. Answering
-                //null immediately keeps that off the resource-stream path.
+                //The CLR asks for these on the first localised resource access and they always
+                //miss here; answering null immediately keeps that off the resource-stream path.
             if (name.EndsWith(".resources", StringComparison.OrdinalIgnoreCase))
                 return null;
 
@@ -45,8 +42,7 @@ namespace PeripheralBatteryMonitor
 
                 Assembly loaded = Load(name);
 
-                    //Cached even when null: a miss is worth remembering, since the CLR
-                    //will keep asking for a name that genuinely is not here.
+                    //Cached even when null: the CLR keeps asking for a name that is not here.
                 Resolved[name] = loaded;
                 return loaded;
             }
@@ -68,8 +64,7 @@ namespace PeripheralBatteryMonitor
                     int read = stream.Read(image, offset, image.Length - offset);
                     if (read == 0)
                     {
-                            //Truncated resource; a partial image would fail in a far more
-                            //confusing way inside Assembly.Load.
+                            //A partial image would fail far more confusingly inside Assembly.Load.
                         return null;
                     }
 

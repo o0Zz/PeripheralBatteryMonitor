@@ -6,10 +6,8 @@ using Microsoft.Win32.SafeHandles;
 namespace PeripheralBatteryMonitor.Hid
 {
     /// <summary>
-    /// Raw Win32 surface for the HID stack (setupapi enumeration + hid.dll + overlapped
-    /// file I/O). Nothing here is HID-vendor specific -- it is the plumbing shared by
-    /// <see cref="HidInterfaceEnumerator"/> and <see cref="HidDevice"/>. Keep the P/Invoke
-    /// confined to this file so the rest of the battery layer stays managed code.
+    /// Raw Win32 surface for the HID stack. Keep the P/Invoke confined to this file so the
+    /// rest of the battery layer stays managed code.
     /// </summary>
     internal static class HidNative
     {
@@ -34,12 +32,6 @@ namespace PeripheralBatteryMonitor.Hid
             //string cap is 126 wchars including the terminator.
         internal const int STRING_BYTES = 254;
 
-        /// <summary>
-        /// Decode a buffer one of the <c>HidD_Get*String</c> calls filled in: UTF-16, cut at
-        /// the first NUL. Shared because two callers ask hid.dll for two different strings
-        /// (<see cref="HidD_GetSerialNumberString"/>, <see cref="HidD_GetProductString"/>) and
-        /// get back the same shape.
-        /// </summary>
         internal static string DecodeString(byte[] buffer)
         {
             string s = Encoding.Unicode.GetString(buffer);

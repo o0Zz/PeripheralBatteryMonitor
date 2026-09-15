@@ -6,28 +6,18 @@ using PeripheralBatteryMonitor.Hid;
 namespace PeripheralBatteryMonitor.Providers.Logitech
 {
     /// <summary>
-    /// Logitech HID++ 2.0 request/response framing over one HID interface -- the long-report
-    /// framing, which is what LIGHTSPEED mice, keyboards and the PRO X Wireless headset use.
-    /// <see cref="CenturionTransport"/> is the other framing, for the newer headsets.
+    /// Logitech HID++ 2.0 over the long-report framing: LIGHTSPEED mice, keyboards and the
+    /// PRO X Wireless headset. <see cref="CenturionTransport"/> is the other framing.
     ///
-    /// A request is an output report laid out as
-    /// <c>[reportId][deviceIndex][featureIndex][functionId&lt;&lt;4 | softwareId][params...]</c>
-    /// and the answer arrives as an input report echoing deviceIndex / featureIndex /
-    /// functionId, so a reply can be told apart from the unsolicited notifications the device
-    /// also sends on the same interface. That layout is already what
-    /// <see cref="IHidppTransport"/> promises its callers, so this transport normalises
-    /// nothing -- it hands the wire frame straight back.
-    ///
-    /// Features are addressed by *index*, and the index of a given feature id differs per
-    /// device, so it must be looked up at runtime through the root feature
-    /// (<see cref="GetFeatureIndex"/>) rather than hardcoded.
+    /// <c>[reportId][deviceIndex][featureIndex][functionId&lt;&lt;4 | softwareId][params...]</c>, and
+    /// the answer echoes the first four bytes so it can be told apart from the unsolicited
+    /// notifications arriving on the same interface. That is already the layout
+    /// <see cref="IHidppTransport"/> promises, so this normalises nothing.
     /// </summary>
     internal class HidppTransport : IHidppTransport
     {
         private const int MAX_FRAMES_PER_REQUEST = 8;
 
-            //How much of a frame to hex-log. A long frame is 20 bytes and the payload every
-            //decoder reads ends well inside that.
         private const int LOG_BYTES = 20;
 
         private HidDevice device;
@@ -37,25 +27,17 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             this.device = device;
         }
 
-        /// <summary>
-        /// Open a HID++ conversation on the given interface. Null when the interface can't be
-        /// opened or is too small to carry a long report.
-        /// </summary>
         public static HidppTransport Open(HidInterfaceInfo info)
         {
             if (info == null)
                 return null;
 
-                //Frame size is a property of the framing, not of the handle, so this states
-                //its own minimum rather than deferring to a shared guard: 20 here, 64 for a
-                //Centurion frame. A collection too small for the framing cannot carry it.
-                //
                 //The 7-byte short report (0x10) is deliberately not a fallback. On Windows a
-                //receiver's short and long collections are separate device paths and a reply
-                //to a short request arrives on the *other* handle, so supporting it is a
-                //two-handle transport rather than a smaller buffer -- and nothing here needs
-                //it: HID++ 2.0 feature calls work over the long collection at every device
-                //index. Also, the PRO X collection rejects report 0x10 outright.
+                //receiver's short and long collections are separate device paths, so a reply to
+                //a short request arrives on the *other* handle -- supporting it is a two-handle
+                //transport, not a smaller buffer. Nothing needs it: 2.0 feature calls work over
+                //the long collection at every device index, and the PRO X collection rejects
+                //report 0x10 outright.
             if (info.OutputReportByteLength < Hidpp.LONG_FRAME_SIZE || info.InputReportByteLength < Hidpp.LONG_FRAME_SIZE)
             {
                 Log.Write("HID++", "refusing " + info + ": reports smaller than a "
@@ -70,10 +52,6 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             return new HidppTransport(hid);
         }
 
-        /// <summary>
-        /// Run one transaction. Returns the raw reply frame -- byte 4 onwards is the payload --
-        /// or null on write failure, timeout or a device-reported error.
-        /// </summary>
         public byte[] Request(byte deviceIndex, byte featureIndex, byte functionId, byte[] parameters, int timeoutMs)
         {
             byte[] request = new byte[device.OutputReportByteLength];
@@ -87,17 +65,15 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                     request[4 + i] = parameters[i];
             }
 
-                //Both directions, always. This is the only record of a vendor conversation
-                //that exists once the app is on someone else's machine -- the person with the
-                //hardware is not the person who can read the code. LOG_BYTES rather than the
-                //whole frame because the rest is zero padding.
+                //Both directions, always: once the app is on someone else's machine this is the
+                //only record of the conversation that exists.
             Log.WriteHex("HID++", "->", request, Math.Min(request.Length, LOG_BYTES));
 
             if (!device.Write(request, timeoutMs))
                 return null;
 
-                //Bound the whole exchange, not just each individual read: a chatty device
-                //could otherwise keep us here for MAX_FRAMES_PER_REQUEST * timeoutMs.
+                //Bound the whole exchange, not each read: a chatty device could otherwise keep
+                //us here for MAX_FRAMES_PER_REQUEST * timeoutMs.
             Stopwatch budget = Stopwatch.StartNew();
 
             for (int frame = 0; frame < MAX_FRAMES_PER_REQUEST; frame++)
@@ -129,8 +105,8 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                     return reply;
 
                     //Anything else is an unsolicited notification -- a receiver's 0x41
-                    //connect/wake/sleep report among them, which carries our device index but a
-                    //protocol byte where the feature index would be. Keep waiting for our reply.
+                    //connect/wake/sleep report carries our device index but a protocol byte
+                    //where the feature index would be. Keep waiting.
             }
 
             return null;

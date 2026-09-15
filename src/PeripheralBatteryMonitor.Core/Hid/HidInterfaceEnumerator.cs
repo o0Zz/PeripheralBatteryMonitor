@@ -19,9 +19,8 @@ namespace PeripheralBatteryMonitor.Hid
     public static class HidInterfaceEnumerator
     {
         /// <summary>
-        /// Enumerate present HID interfaces belonging to one of <paramref name="vendorIds"/>.
-        /// Pass an empty/null list to consider every device (slower -- every HID interface on
-        /// the machine gets opened).
+        /// Null or empty <paramref name="vendorIds"/> considers every device, which is slower:
+        /// every HID interface on the machine gets opened.
         /// </summary>
         public static List<HidInterfaceInfo> Enumerate(ICollection<ushort> vendorIds)
         {
@@ -90,10 +89,8 @@ namespace PeripheralBatteryMonitor.Hid
             return false;
         }
 
-        /// <summary>Read one interface's attributes and capabilities. Null if it can't be queried.</summary>
         private static HidInterfaceInfo Describe(string path)
         {
-                //Access 0: query-only, see the class remarks.
             using (SafeFileHandle handle = HidNative.CreateFile(path, 0,
                        HidNative.FILE_SHARE_READ | HidNative.FILE_SHARE_WRITE,
                        IntPtr.Zero, HidNative.OPEN_EXISTING, 0, IntPtr.Zero))
@@ -194,7 +191,6 @@ namespace PeripheralBatteryMonitor.Hid
         private static string GetDevicePath(IntPtr deviceInfoSet, ref HidNative.SP_DEVICE_INTERFACE_DATA interfaceData)
         {
             int requiredSize = 0;
-                //First call sizes the buffer.
             HidNative.SetupDiGetDeviceInterfaceDetail(deviceInfoSet, ref interfaceData, IntPtr.Zero, 0, ref requiredSize, IntPtr.Zero);
             if (requiredSize <= 0)
                 return null;

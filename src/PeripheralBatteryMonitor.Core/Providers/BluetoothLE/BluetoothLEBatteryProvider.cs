@@ -8,15 +8,13 @@ using PeripheralBatteryMonitor.Contracts;
 namespace PeripheralBatteryMonitor.Providers
 {
     /// <summary>
-    /// Reads battery over Bluetooth Low Energy, from the **GATT Battery Service 0x180F /
-    /// level characteristic 0x2A19**. BLE only -- GATT does not exist on Bluetooth Classic --
-    /// and it latches off if the service is absent, so an unsupported device is probed once
-    /// per lifetime rather than every poll. Uses 30 s connect / 5 s read timeouts and caches
-    /// the connection, so a bound device doesn't reconnect on every poll.
+    /// **GATT Battery Service 0x180F / level characteristic 0x2A19**. BLE only -- GATT does not
+    /// exist on Bluetooth Classic -- and it latches off when the service is absent, so an
+    /// unsupported device is probed once per lifetime rather than every poll. 30 s connect /
+    /// 5 s read timeouts, and the connection is cached.
     ///
-    /// Note this is not the only provider that serves BLE devices: one that reports no GATT
-    /// battery service can still be read by <see cref="BluetoothBatteryProvider"/> if Windows
-    /// publishes a level for it.
+    /// Not the only provider serving BLE devices: one with no GATT battery service can still be
+    /// read by <see cref="BluetoothBatteryProvider"/> if Windows publishes a level.
     /// </summary>
     public class BluetoothLEBatteryProvider : IBatteryProvider, IDeviceLinkState
     {
@@ -37,8 +35,7 @@ namespace PeripheralBatteryMonitor.Providers
 
             try
             {
-                //Definitive + self-healing: connect and confirm the battery characteristic
-                //exists, re-establishing the link if it dropped since we bound.
+                //Self-healing: re-establishes the link if it dropped since we bound.
                 if (!IsGattConnected())
                     ConnectAndDiscover(ctx);
                 if (!IsGattConnected())
@@ -71,7 +68,6 @@ namespace PeripheralBatteryMonitor.Providers
 
         public bool IsLinkUp(IBatteryDeviceContext ctx)
         {
-                //Cheap, no I/O -- just the cached connection status.
             return IsGattConnected();
         }
 

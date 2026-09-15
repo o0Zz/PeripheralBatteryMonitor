@@ -7,26 +7,20 @@ using PeripheralBatteryMonitor.Hid;
 namespace PeripheralBatteryMonitor.Providers.Logitech
 {
     /// <summary>
-    /// Turns one Logitech receiver into the peripherals actually paired to it.
+    /// Turns one Logitech receiver into the peripherals actually paired to it: a single HID
+    /// interface carrying up to six devices at HID++ index 1..6. Index 0xFF addresses the
+    /// receiver itself, which speaks HID++ 1.0 registers and implements no 2.0 battery feature
+    /// -- reading every collection at 0xFF found nothing and surfaced a phantom "unknown
+    /// battery" entry, which is why the provider's id allowlist existed.
     ///
-    /// A LIGHTSPEED or Unifying receiver is a single HID interface carrying up to six devices,
-    /// addressed by HID++ device index 1..6. Index 0xFF addresses the receiver itself, which
-    /// speaks HID++ 1.0 registers and implements no 2.0 battery feature at all -- so the old
-    /// behaviour of reading every Logitech collection at 0xFF found nothing and surfaced a
-    /// phantom "unknown battery" entry, which is why the provider's product id allowlist
-    /// existed.
+    /// <b>A child device exists here only because something answered a root-feature ping at
+    /// its index *and* implements a battery feature we can read.</b> The receiver is never
+    /// surfaced. That makes a receiver id shared across products harmless -- 0xC547 ships with
+    /// the G915 X TKL, the PRO X Superlight and the G502 X alike -- because nothing here names
+    /// the peripheral from the receiver's id. It asks the device.
     ///
-    /// <b>This is a better answer to that than an allowlist, and it is why the allowlist can
-    /// stop carrying the weight.</b> A child device exists here only because something
-    /// answered a root-feature ping at its index *and* implements a battery feature we can
-    /// read. The receiver is never surfaced. That makes a receiver product id shared across
-    /// several products harmless -- 0xC547 ships with the G915 X TKL, the PRO X Superlight and
-    /// the G502 X LIGHTSPEED alike -- because nothing here identifies the peripheral from the
-    /// receiver's id. It asks the device.
-    ///
-    /// <b>Unverified against hardware.</b> The receiver product ids come from published device
-    /// tables, and nobody working on this has one. The ping gate is what makes that safe to
-    /// ship: a wrong id costs one sweep that finds nothing, not a wrong reading.
+    /// <b>Unverified against hardware.</b> The ping gate is what makes that safe to ship: a
+    /// wrong id costs one sweep that finds nothing, not a wrong reading.
     /// </summary>
     internal class LogitechReceiverEnumerator : IHidDeviceExpander
     {
@@ -34,47 +28,36 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         private const byte FIRST_INDEX = 1;
         private const byte LAST_INDEX = 6;
 
-            //An occupied slot answers in well under a millisecond *once the peripheral is
-            //awake*; an empty one says nothing and costs the whole timeout, and a receiver has
-            //to forward the ping over the air before either can happen. Six empty slots is the
-            //worst case, so this number decides how long a sweep can stall the UI thread:
-            //6 x 300 ms. It is deliberately several times the 80 ms this started at -- that
-            //was measured against nothing, and a value chosen to bound the stall is worthless
-            //if it also bounds out the answer.
+            //An empty slot says nothing and costs the whole timeout, so six of them is the
+            //worst case: 6 x 300 ms of UI-thread stall. Deliberately several times the 80 ms
+            //this started at -- a receiver has to forward the ping over the air first, and a
+            //timeout chosen to bound the stall is worthless if it bounds out the answer too.
         private const int PING_TIMEOUT_MS = 300;
 
-            //Resolving a feature and reading a name are real exchanges with a device that has
-            //already proved it is listening, so they can afford the normal budget.
+            //Real exchanges with a device that has already proved it is listening.
         private const int QUERY_TIMEOUT_MS = 500;
 
-            //How long a sweep's result stands. Long enough that the cost above is amortised to
-            //nothing against a five-minute poll; short enough that pairing a new peripheral
-            //through Logitech's own software shows up without restarting this app.
+            //Long enough to amortise the cost above; short enough that pairing a new
+            //peripheral shows up without restarting the app.
         private static readonly TimeSpan ReprobeInterval = TimeSpan.FromMinutes(15);
 
-            //How long "the collection would not open" stands. Short, because the usual cause is
-            //another process holding it -- which clears on its own -- but not so short that we
-            //retry an exclusive open on every single tick.
+            //The usual cause is another process holding the collection, which clears on its
+            //own -- but not so short that we retry an exclusive open every tick.
         private static readonly TimeSpan RetryAfterOpenFailure = TimeSpan.FromSeconds(60);
 
-            //How long "the receiver answered for nobody" stands. This is the expensive case --
-            //six pings that each run to the full timeout -- and the cheap thing to do with an
-            //expensive question is ask it less often, so it is not retried at the open-failure
-            //rate. A peripheral switched on during the gap is found by the poll after it, and
-            //a user who does not want to wait has the tray's Refresh, which forces a re-sweep
-            //(see the <c>force</c> argument). That pairing is the point: the interval can be
-            //this long only because there is a way to skip it.
+            //The expensive case -- six pings each running to the full timeout -- so it is asked
+            //less often than an open failure. The interval can be this long only because the
+            //tray's Refresh forces a re-sweep past it; see the <c>force</c> argument.
         private static readonly TimeSpan RetryAfterEmptySweep = TimeSpan.FromMinutes(5);
 
             //0x0005 DEVICE_NAME: func 0 gives the length, func 1 fetches 16 characters at a
-            //time. Two or three transactions, run once per sweep and cached with it -- worth
-            //it, because the alternative in the tray is "USB Receiver device 1".
+            //time. Worth the two or three transactions -- the alternative in the tray is
+            //"USB Receiver device 1".
         private const ushort FEATURE_DEVICE_NAME = 0x0005;
         private const int DEVICE_NAME_CHUNK = 16;
 
-            //The battery features the provider knows how to decode. A slot has to implement one
-            //of them to be worth surfacing; a paired device with no readable battery would
-            //otherwise be exactly the phantom entry this design exists to prevent.
+            //A slot must implement one of these to be worth surfacing: a paired device with no
+            //readable battery is exactly the phantom entry this design exists to prevent.
         private static readonly ushort[] batteryFeatures = new ushort[] { 0x1004, 0x1000, 0x1001, 0x1F20 };
 
         private class Sweep
@@ -94,10 +77,9 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             }
         }
 
-            //Keyed on the interface path, which is what identifies one receiver in one USB
-            //port. Static because HidDeviceSpec holds a single expander instance shared by
-            //every interface the spec matches, and because a sweep's result is a property of
-            //the hardware rather than of any one device object.
+            //Keyed on the interface path, which identifies one receiver in one USB port. Static
+            //because HidDeviceSpec holds a single expander instance shared by every interface
+            //the spec matches.
         private static readonly Dictionary<string, Sweep> sweeps = new Dictionary<string, Sweep>();
 
         public List<HidDiscoveredDevice> Expand(HidInterfaceInfo info, HidDeviceSpec spec, bool force)
@@ -119,10 +101,8 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             }
         }
 
-        /// <summary>
-        /// Ask each slot whether anything is there. One open handle for the whole sweep -- six
-        /// separate opens would cost more than the pings do.
-        /// </summary>
+        /// <summary>One open handle for the whole sweep: six separate opens cost more than the
+        /// pings do.</summary>
         private static List<HidDiscoveredDevice> Probe(HidInterfaceInfo info, HidDeviceSpec spec, out bool openFailed)
         {
             List<HidDiscoveredDevice> found = new List<HidDiscoveredDevice>();
@@ -130,10 +110,8 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
 
             try
             {
-                    //Say what is being swept before sweeping it. A sweep that finds nothing is
-                    //the shape of every "my Logitech device is missing" report, and without
-                    //this line the log of one is indistinguishable from a log where no receiver
-                    //was ever claimed at all.
+                    //A sweep that finds nothing is the shape of every "my Logitech device is
+                    //missing" report; without this line it looks like a sweep that never ran.
                 Log.Write("Logitech", "receiver sweep: " + info);
 
                 using (IHidppTransport hidpp = HidppTransport.Open(info))
@@ -159,9 +137,8 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                         ushort featureId;
                         if (!HasBatteryFeature(hidpp, index, out featureId))
                         {
-                                //Paired and awake, but nothing here can read its battery.
-                                //Surfacing it would put a permanent "?" in the tray, which is
-                                //the phantom entry in a different costume.
+                                //Paired and awake, but unreadable: surfacing it would put a
+                                //permanent "?" in the tray.
                             Log.Write("Logitech", "receiver slot " + index + ": answers but implements no battery feature -- not surfaced");
                             continue;
                         }
@@ -197,10 +174,6 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             return false;
         }
 
-        /// <summary>
-        /// The peripheral's own name, via feature 0x0005. Null when it does not implement it or
-        /// will not answer, in which case the caller falls back to something generic.
-        /// </summary>
         private static string ReadDeviceName(IHidppTransport hidpp, byte deviceIndex)
         {
             byte featureIndex = hidpp.GetFeatureIndex(deviceIndex, FEATURE_DEVICE_NAME, QUERY_TIMEOUT_MS);

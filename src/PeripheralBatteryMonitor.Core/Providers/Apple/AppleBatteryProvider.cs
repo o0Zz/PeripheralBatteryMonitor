@@ -7,27 +7,19 @@ using PeripheralBatteryMonitor.Hid;
 namespace PeripheralBatteryMonitor.Providers
 {
     /// <summary>
-    /// Reads battery for Apple "Magic" devices (Magic Mouse / Magic Trackpad / Magic
-    /// Keyboard). These do NOT expose battery through the Bluetooth property bag
-    /// (<see cref="DeviceProperties.PROP_BATTERY_LEVEL"/>), so the other providers
-    /// never see them. Instead they report battery through a vendor HID input report
-    /// (report id 0x90), where byte[2] holds the level as a plain 0..100 percentage -- only
-    /// reachable through the raw HID stack, which this provider drives via
-    /// <see cref="HidInterfaceEnumerator"/> / <see cref="HidDevice"/>. Verified against the
-    /// Linux hid-magicmouse driver and the WinMagicBattery Windows implementation.
+    /// Reads battery for Apple "Magic" devices. These do **not** expose battery through the
+    /// Bluetooth property bag, so no other provider sees them; they report it through a vendor
+    /// HID input report (id 0x90) whose byte[2] is a plain 0..100 percentage. Verified against
+    /// the Linux hid-magicmouse driver and the WinMagicBattery implementation.
     ///
-    /// Note these devices are still discovered over Bluetooth like any other paired device --
-    /// only the battery *reading* goes over HID. So unlike the Logitech provider, this one
-    /// registers no <see cref="HidDeviceSpec"/>; doing so would list the device twice.
-    ///
-    /// <see cref="ReadBattery"/> is definitive: it yields a value only when a matching Apple
-    /// HID battery is actually found for this device.
+    /// They are still *discovered* over Bluetooth like any other paired device -- only the
+    /// reading goes over HID -- so unlike the Logitech provider this one registers no
+    /// <see cref="HidDeviceSpec"/>: doing so would list the device twice.
     /// </summary>
     public class AppleBatteryProvider : IBatteryProvider
     {
-            //Apple vendor id, as reported by HidD_GetAttributes: 0x004C over Bluetooth,
-            //0x05AC over USB. (The device path spells the BT one "vid&0002004c", which is why
-            //the enumerator pre-filters paths on the bare hex digits rather than "vid_".)
+            //0x004C over Bluetooth, 0x05AC over USB. The device path spells the BT one
+            //"vid&0002004c", which is why the enumerator pre-filters on bare hex digits.
         private const ushort APPLE_VID_BT = 0x004C;
         private const ushort APPLE_VID_USB = 0x05AC;
 
@@ -50,11 +42,8 @@ namespace PeripheralBatteryMonitor.Providers
         /* ===================== Apple HID battery read ====================== */
 
         /// <summary>
-        /// Obtain the battery level (0..100) of an Apple Magic device. Primary match is by
-        /// Bluetooth MAC address (Apple HID devices report their MAC as the HID serial
-        /// number). When the device looks like an Apple Magic device and exactly one Apple
-        /// HID battery is present, it is used as a fallback so single-device setups work even
-        /// if the serial/MAC can't be matched.
+        /// Matched by Bluetooth MAC, which Apple HID devices report as their serial number.
+        /// The single-device fallback below covers systems where the serial is not the MAC.
         /// </summary>
         private static bool TryGetBatteryLevel(string bluetoothAddress, string deviceName, out int level)
         {
@@ -80,8 +69,7 @@ namespace PeripheralBatteryMonitor.Providers
             }
             catch
             {
-                    //Raw HID access can fail for many benign reasons (device asleep,
-                    //access denied on a claimed collection). Treat as "no reading".
+                    //Device asleep, access denied on a claimed collection. No reading.
             }
 
             level = -1;
@@ -100,8 +88,8 @@ namespace PeripheralBatteryMonitor.Providers
 
         private static void ReadDeviceBattery(HidInterfaceInfo info, Dictionary<string, int> result)
         {
-                //Report requests only -- this asks the device for report 0x90 rather than
-                //waiting for it to send one, so the handle must not be overlapped.
+                //Asks for report 0x90 rather than waiting for one, so the handle must not be
+                //overlapped.
             using (HidDevice device = HidDevice.OpenForReportRequests(info))
             {
                 if (device == null)

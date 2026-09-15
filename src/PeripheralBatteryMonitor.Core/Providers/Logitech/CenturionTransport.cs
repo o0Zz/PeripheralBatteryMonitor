@@ -6,11 +6,9 @@ using PeripheralBatteryMonitor.Hid;
 namespace PeripheralBatteryMonitor.Providers.Logitech
 {
     /// <summary>
-    /// Centurion: the framing Logitech's newer headsets use to carry HID++ 2.0, in place of
-    /// the long-report framing in <see cref="HidppTransport"/>. The PRO X 2 LIGHTSPEED
-    /// (VID 0x046D / PID 0x0AF7) is the reason this exists -- it answers on its own vendor
-    /// collection at usage page 0xFFA0 / usage 0x0001, in 64-byte frames with report id 0x51,
-    /// and does not speak the 0x11 framing at all.
+    /// Centurion: the framing Logitech's newer headsets use to carry HID++ 2.0. The PRO X 2
+    /// LIGHTSPEED (PID 0x0AF7) answers on usage page 0xFFA0 / usage 0x0001 in 64-byte frames
+    /// with report id 0x51, and does not speak the 0x11 framing at all.
     ///
     /// <code>
     /// out: [0x51][cplLength][flags][featureIndex][functionId&lt;&lt;4|swId][params...]  padded to 64
@@ -18,19 +16,16 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
     /// cplLength = 1 (the flags byte) + the length of everything from featureIndex onwards
     /// </code>
     ///
-    /// <b>The feature layer above this is completely unchanged.</b> Everything from
-    /// featureIndex onwards is byte-for-byte the tail of a HID++ long report, which is why
-    /// <see cref="Request"/> hands back a normalised <c>[0x11][0xFF]...</c> frame and the
-    /// battery decoders never learn which transport produced them. Solaar does the same
-    /// thing -- it rewrites a received Centurion frame as a standard long message and then
-    /// runs its ordinary HID++ 2.0 machinery over it -- and its own address probe payload,
-    /// <c>00 10 00 00 00</c>, is a plain root-feature ping, which is what confirms the layout.
+    /// <b>The feature layer above this is unchanged.</b> Everything from featureIndex onwards
+    /// is byte-for-byte the tail of a HID++ long report, which is why <see cref="Request"/>
+    /// hands back a normalised frame and the decoders never learn which transport produced it.
+    /// Solaar's own address probe payload, <c>00 10 00 00 00</c>, is a plain root-feature ping,
+    /// which is what confirms the layout.
     ///
-    /// The <c>0x50</c> "addressed" variant (the G522 headset) inserts a device address byte at
-    /// [1] and shifts everything after it by one. It is deliberately not implemented: the
-    /// address has to be brute-forced across 0x00-0xFF, which costs up to 1.3 s on the UI
-    /// thread, and there is no such headset to test against. The <c>deviceIndex</c> argument
-    /// is where that address would go if it ever is.
+    /// The <c>0x50</c> "addressed" variant (G522) inserts a device address at [1] and shifts
+    /// everything after it by one. Not implemented: the address has to be brute-forced across
+    /// 256 values, up to 1.3 s on the UI thread, with no such headset to test against. The
+    /// <c>deviceIndex</c> argument is where it would go.
     ///
     /// <b>Unverified against hardware.</b> The framing comes from Solaar's implementation and
     /// the product id from Solaar and HeadsetControl; nobody working on this has a PRO X 2.
@@ -38,7 +33,6 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
     /// </summary>
     internal class CenturionTransport : IHidppTransport
     {
-            //Report id of the unaddressed variant. 0x50 is the addressed one; see the remarks.
         public const byte REPORT_CENTURION = 0x51;
 
             //Fixed, and not derived from the collection's declared report length: the frame is
@@ -46,8 +40,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             //maximum payload it documents implies.
         public const int FRAME_SIZE = 64;
 
-            //Where layer 3 -- the HID++ tail, starting at the feature index -- begins in a
-            //frame. [0] report id, [1] cplLength, [2] flags.
+            //[0] report id, [1] cplLength, [2] flags.
         private const int LAYER3_OFFSET = 3;
 
             //Fragmentation: (fragmentIndex << 1) | moreFragments. Everything here is a single
@@ -56,10 +49,8 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
 
         private const int MAX_FRAMES_PER_REQUEST = 8;
 
-            //How much of a frame to hex-log. The rest of a 64-byte frame is padding, and the
-            //payload every decoder here reads ends well inside this. Wider than strictly
-            //needed on purpose: this protocol is unverified, so the log has to carry a few
-            //bytes past where we believe the answer stops.
+            //Wider than the payload any decoder reads, on purpose: this protocol is
+            //unverified, so the log has to carry a few bytes past where we believe it stops.
         private const int LOG_BYTES = 24;
 
         private HidDevice device;
@@ -69,21 +60,13 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             this.device = device;
         }
 
-        /// <summary>
-        /// Open a Centurion conversation on the given interface. Null when the interface
-        /// can't be opened or is too small to carry a frame.
-        ///
-        /// <see cref="HidDevice.Open"/>, i.e. overlapped and read/write, for the same reason
-        /// HID++ needs it: the answer arrives as an input report the device sends, so this has
-        /// to be able to wait for one -- with a timeout, on the UI thread.
-        /// </summary>
         public static CenturionTransport Open(HidInterfaceInfo info)
         {
             if (info == null)
                 return null;
 
-                //Frame size is a property of the framing, not of the handle, so this states
-                //its own minimum rather than sharing HidppTransport's: 64 here, 20 there.
+                //Frame size is a property of the framing, not of the handle: 64 here, 20 in
+                //HidppTransport.
             if (info.OutputReportByteLength < FRAME_SIZE || info.InputReportByteLength < FRAME_SIZE)
             {
                 Log.Write("Centurion", "refusing " + info + ": reports smaller than a " + FRAME_SIZE + "-byte frame");
@@ -98,9 +81,8 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         }
 
         /// <summary>
-        /// Run one transaction and hand back the reply in HID++ long-report shape. The
-        /// <paramref name="deviceIndex"/> is accepted for the interface's sake and reported
-        /// back in the normalised frame; Centurion has no device-index byte to put it in.
+        /// <paramref name="deviceIndex"/> is accepted for the interface's sake and echoed into
+        /// the normalised frame; Centurion has no device-index byte to put it in.
         /// </summary>
         public byte[] Request(byte deviceIndex, byte featureIndex, byte functionId, byte[] parameters, int timeoutMs)
         {
@@ -109,8 +91,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
 
             byte[] request = new byte[device.OutputReportByteLength];
             request[0] = REPORT_CENTURION;
-                //cplLength counts the flags byte plus all of layer 3, which is the feature
-                //index, the function byte and the parameters.
+                //cplLength counts the flags byte plus all of layer 3.
             request[1] = (byte)(1 + 2 + parameterCount);
             request[2] = FLAGS_SINGLE_FRAME;
             request[LAYER3_OFFSET] = featureIndex;
@@ -123,9 +104,9 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             if (!device.Write(request, timeoutMs))
                 return null;
 
-                //Bound the whole exchange, not just each individual read: this collection also
-                //carries unsolicited power events, so a chatty device could otherwise keep us
-                //here for MAX_FRAMES_PER_REQUEST * timeoutMs.
+                //Bound the whole exchange, not each read: this collection also carries
+                //unsolicited power events, so a chatty device could keep us here for
+                //MAX_FRAMES_PER_REQUEST * timeoutMs.
             Stopwatch budget = Stopwatch.StartNew();
 
             for (int frame = 0; frame < MAX_FRAMES_PER_REQUEST; frame++)
@@ -139,9 +120,9 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                 if (!device.Read(reply, remaining, out read))
                     return null;
 
-                    //This collection also carries the headset's unsolicited power events,
-                    //so label what was kept and what was dropped: otherwise a reader cannot
-                    //tell the answer from the traffic around it.
+                    //Label what was kept and what was dropped: this collection also carries
+                    //the headset's own power events, and a reader cannot otherwise tell the
+                    //answer from the traffic around it.
                 bool ours = read >= LAYER3_OFFSET + 2 && reply[0] == REPORT_CENTURION;
                 Log.WriteHex("Centurion", ours ? "<-" : "<- (ignored)", reply, Math.Min(read, LOG_BYTES));
 
@@ -159,11 +140,9 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                     continue;           //an error about some other feature; keep waiting
                 }
 
-                    //The device's own power events arrive on this collection too --
-                    //51 05 00 03 00 00 XX 00, carrying feature index 3 exactly as a real answer
-                    //might -- and what separates them is the software id in the function byte:
-                    //theirs is 0, ours is SOFTWARE_ID. That is why the constant must stay
-                    //nonzero, and why both halves of this test matter.
+                    //Power events (51 05 00 03 00 00 XX 00) carry feature index 3 exactly as a
+                    //real answer might, and only the software id separates them: theirs is 0,
+                    //ours is SOFTWARE_ID. Both halves of this test matter.
                 if (normalised[2] != featureIndex || normalised[3] != functionByte)
                     continue;
 
@@ -190,17 +169,16 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         }
 
         /// <summary>
-        /// Rebuild a Centurion frame as a HID++ long report, so every caller above sees one
-        /// layout. Null when the frame does not describe itself sensibly, which is worth
-        /// dropping rather than guessing at -- a wrong offset here reads a plausible
-        /// neighbouring byte instead of failing.
+        /// Rebuild a Centurion frame as a HID++ long report. Null when the frame does not
+        /// describe itself sensibly -- worth dropping rather than guessing at, since a wrong
+        /// offset here reads a plausible neighbouring byte instead of failing.
         /// </summary>
         private static byte[] Normalise(byte[] reply, int read, byte deviceIndex)
         {
             if (reply[2] != FLAGS_SINGLE_FRAME)
             {
-                    //A fragmented reply. Reassembly is not implemented, and pretending the
-                    //first fragment is the whole answer would be worse than reporting nothing.
+                    //Reassembly is not implemented, and pretending the first fragment is the
+                    //whole answer would be worse than reporting nothing.
                 Log.Write("Centurion", "multi-fragment reply (flags 0x" + reply[2].ToString("X2") + ") -- not supported");
                 return null;
             }

@@ -7,37 +7,25 @@ using PeripheralBatteryMonitor.Providers;
 namespace PeripheralBatteryMonitor
 {
     /// <summary>
-    /// Discovery source for devices that reach the PC over raw USB HID instead of Bluetooth --
-    /// typically a wireless peripheral with its own vendor dongle, which has no Bluetooth
-    /// association endpoint and so is invisible to the <c>DeviceWatcher</c> pair in
-    /// <see cref="DeviceManager"/>.
+    /// Discovery for devices that reach the PC over raw USB HID -- a peripheral on its own
+    /// vendor dongle, which has no Bluetooth association endpoint and so is invisible to the
+    /// watchers in <see cref="DeviceManager"/>.
     ///
-    /// Unlike Bluetooth discovery there is nothing to subscribe to: this is a plain snapshot
-    /// of what is plugged in right now, cheap enough (a setupapi walk filtered to a handful of
-    /// vendor ids) to re-run on every poll tick, which is also what gives plug/unplug
-    /// handling for free.
+    /// Nothing to subscribe to, so this is a plain snapshot, cheap enough to re-run every poll
+    /// tick -- which is what gives plug/unplug handling for free.
     ///
-    /// One interface is *usually* one device, and was always one device until receivers were
-    /// supported. A spec may now carry an <see cref="IHidDeviceExpander"/>, in which case the
-    /// interface stands for however many peripherals are actually paired to it -- see
-    /// <see cref="HidDiscoveredDevice"/>.
+    /// One interface is only *usually* one device: a spec may carry an
+    /// <see cref="IHidDeviceExpander"/>, and then the interface stands for however many
+    /// peripherals are actually paired to it.
     ///
-    /// <b>internal, unlike the other three types at the project root.</b> Those three --
-    /// <see cref="BatteryDevice"/>, <see cref="DeviceManager"/> and
-    /// <see cref="IDeviceNotification"/> -- are exactly what the App project references, so
-    /// the root doubles as this assembly's public API. This one is a helper
-    /// <see cref="DeviceManager"/> drives and nothing outside Core touches; keeping it
-    /// internal makes that boundary the compiler's business rather than a convention.
+    /// <b>internal</b>, unlike the other three types at the project root, which are this
+    /// assembly's public API. Nothing outside Core drives this one.
     /// </summary>
     internal static class HidDeviceSource
     {
         /// <summary>
-        /// Every device behind a present HID interface that a registered spec claims. May be
-        /// empty.
-        ///
         /// <paramref name="force"/> passes the user's explicit Refresh down to the specs that
-        /// cache -- the receiver expanders. The enumeration itself is a setupapi walk that is
-        /// never cached, so nothing else here reads it.
+        /// cache -- the receiver expanders. The enumeration itself is never cached.
         /// </summary>
         public static List<HidDiscoveredDevice> Discover(bool force)
         {
@@ -58,8 +46,6 @@ namespace PeripheralBatteryMonitor
 
                 if (spec.Expander != null)
                 {
-                        //A receiver: the interface stands for whatever is paired to it, and
-                        //possibly for nothing at all.
                     List<HidDiscoveredDevice> children = spec.Expander.Expand(info, spec, force);
                     if (children != null)
                         found.AddRange(children);
@@ -72,24 +58,15 @@ namespace PeripheralBatteryMonitor
             return found;
         }
 
-            //Interfaces this has already had its say about, so a permanently unclaimed
-            //collection writes one line rather than one line every poll tick for as long as
-            //the app runs. Bounded by the number of HID interfaces of the registered vendors,
-            //which is tens.
+            //So a permanently unmatched collection writes one line rather than one per poll
+            //tick for the life of the app.
         private static readonly HashSet<string> loggedInterfaces = new HashSet<string>();
 
         /// <summary>
-        /// Name what discovery decided about one interface, once.
-        ///
-        /// An interface no spec claims is invisible to the entire app: no
-        /// <see cref="BatteryDevice"/>, nothing to refresh, nothing in the tray and nothing
-        /// in the Info window. That is the exact shape of every "my device does not show up"
-        /// report, and until this line existed there was no way to tell it apart from a
-        /// device that was found and simply would not answer.
-        ///
-        /// This costs nothing extra to collect: <c>Enumerate</c> is pre-filtered by the
-        /// *vendor* ids the specs registered, not by the specs themselves, so the rejected
-        /// interfaces of a registered vendor are already in hand and being thrown away.
+        /// An interface no spec claims is invisible to the entire app -- no device, nothing in
+        /// the tray, nothing in the Info window -- which is the exact shape of every "my device
+        /// does not show up" report, and indistinguishable without this line from a device that
+        /// was found and would not answer.
         /// </summary>
         private static void LogDecisionOnce(HidInterfaceInfo info, HidDeviceSpec spec)
         {
@@ -99,9 +76,8 @@ namespace PeripheralBatteryMonitor
                     return;
             }
 
-                //The same two words the startup snapshot's table uses, so one grep finds every
-                //mention of a collection in either place -- and capitalised for the same
-                //reason. See DiagnosticReport for what they do and do not claim.
+                //The same two words the startup snapshot's table uses, capitalised for the same
+                //reason: one grep finds every mention of a collection in either place.
             Log.Write("Discovery", (spec != null ? "Supported by spec '" + spec.FallbackName + "': " : "Not Supported: ")
                 + info + "  " + info.Path);
         }

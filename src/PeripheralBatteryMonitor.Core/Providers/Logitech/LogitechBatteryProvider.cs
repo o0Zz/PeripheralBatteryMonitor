@@ -6,27 +6,19 @@ using PeripheralBatteryMonitor.Hid;
 namespace PeripheralBatteryMonitor.Providers.Logitech
 {
     /// <summary>
-    /// Reads battery for Logitech LIGHTSPEED and Unifying devices -- a peripheral on its own
-    /// USB dongle, or one paired to a receiver alongside others. These are not Bluetooth
-    /// devices at all, so they are discovered through the HID layer (see <see cref="HidSpec"/>
-    /// and its two siblings) and none of the Bluetooth property-bag providers can see them;
-    /// Windows exposes no battery for them either
-    /// (<see cref="DeviceProperties.PROP_BATTERY_LEVEL"/> is absent from every one of the
-    /// device's nodes, and there is no HID-battery node).
+    /// Reads battery for Logitech LIGHTSPEED and Unifying devices. Not Bluetooth at all, so
+    /// they are discovered through the HID layer, and Windows exposes no battery for them
+    /// either: PROP_BATTERY_LEVEL is absent from every one of the device's nodes and there is
+    /// no HID-battery node.
     ///
-    /// Battery comes from HID++ 2.0 over the device's vendor collection. Which *feature*
-    /// carries it varies per device, so <see cref="batteryFeatures"/> is probed in order and
-    /// the first one that both exists and yields a value is remembered. Features that report a
-    /// percentage outright come first; the two that report a raw cell voltage are last,
-    /// because turning volts into a percentage costs accuracy (see
-    /// <see cref="LogitechVoltageCurve"/>).
+    /// Which *feature* carries the battery varies per device, so <see cref="batteryFeatures"/>
+    /// is probed in order and the first that yields a value is remembered. Percentage features
+    /// come first; the two that report a raw cell voltage are last, because converting volts
+    /// costs accuracy.
     ///
-    /// Two things vary underneath that and neither reaches this class's decoders. The
-    /// **framing** is chosen by usage page in <see cref="OpenTransport"/> -- the newer headsets
-    /// wrap the same feature layer in Centurion, see <see cref="CenturionTransport"/> -- and
-    /// the **device index** comes from the property bag, 0xFF for a device behind its own
-    /// dongle and 1..6 for one paired to a receiver, see
-    /// <see cref="LogitechReceiverEnumerator"/>.
+    /// Two things vary underneath and neither reaches the decoders: the **framing**, chosen by
+    /// usage page in <see cref="OpenTransport"/>, and the **device index**, from the property
+    /// bag -- 0xFF behind its own dongle, 1..6 behind a receiver.
     ///
     /// Verified against a PRO X Wireless (VID 0x046D / PID 0x0ABA), which is the awkward case:
     /// it implements *none* of the three standard battery features, only 0x1F20. HID++ 4.2
@@ -37,23 +29,20 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
     {
         private const ushort LOGITECH_VENDOR_ID = 0x046D;
 
-            //Logitech's HID++ collection on modern gaming gear, for a device connected
-            //directly -- its own dongle, or Bluetooth.
+            //A device connected directly: its own dongle, or Bluetooth.
         private const ushort HIDPP_USAGE_PAGE = 0xFF43;
         private const ushort HIDPP_USAGE = 0x0202;
 
-            //A *receiver* carries the same HID++ traffic on a different collection: the
-            //generic vendor page 0xFF00, short reports at usage 0x0001 and long ones at
-            //0x0002. It is not a variant spelling of the pair above -- a receiver never
-            //publishes 0xFF43 and a directly connected device never publishes 0xFF00 -- which
-            //is why ReceiverHidSpec has to state its own. Pointing it at 0xFF43 made every
-            //receiver unclaimable and the whole sweep below unreachable.
+            //A *receiver* carries the same traffic on the generic vendor page instead, short
+            //reports at usage 0x0001 and long at 0x0002. Not a variant spelling of the pair
+            //above: a receiver never publishes 0xFF43 and a direct device never publishes
+            //0xFF00. Pointing ReceiverHidSpec at 0xFF43 made every receiver unmatchable and
+            //the whole sweep unreachable.
         private const ushort RECEIVER_USAGE_PAGE = 0xFF00;
         private const ushort RECEIVER_USAGE_LONG = 0x0002;
 
-            //The collection the newer headsets answer on instead, carrying the same HID++ 2.0
-            //feature layer inside Centurion framing. A device publishes one or the other, never
-            //both, so the usage page is what picks the transport -- see OpenTransport.
+            //The newer headsets, same feature layer inside Centurion framing. A device
+            //publishes one or the other, never both, so the usage page picks the transport.
         private const ushort CENTURION_USAGE_PAGE = 0xFFA0;
         private const ushort CENTURION_USAGE = 0x0001;
 
@@ -78,58 +67,42 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             FEATURE_ADC_MEASUREMENT,
         };
 
-            //The dongle answers in well under a millisecond when the device is awake; this
-            //only has to cover the case where it is off and says nothing at all.
+            //The dongle answers in under a millisecond when awake; this only covers the case
+            //where the device is off and says nothing.
         private const int TIMEOUT_MS = 500;
 
         /// <summary>
-        /// The HID++ interface that stands for one of these devices, for the discovery layer.
-        ///
-        /// Deliberately restricted to product ids that have actually been verified: matching
-        /// every Logitech HID++ collection would also match Unifying receivers for mice and
-        /// keyboards, where device index 0xFF addresses the receiver rather than the
-        /// peripheral and no battery feature answers -- surfacing a phantom "unknown battery"
-        /// entry in the tray. Adding a LIGHTSPEED device that speaks this framing is a
-        /// one-line change here: its battery feature no longer has to be the same one, but it
-        /// does still have to sit on this collection and answer at device index 0xFF.
+        /// Restricted to verified product ids: matching every Logitech HID++ collection would
+        /// also match receivers, where index 0xFF addresses the receiver itself and no battery
+        /// feature answers -- a phantom "unknown battery" entry in the tray. To add a device
+        /// here it must sit on this collection and answer at index 0xFF.
         /// </summary>
         public static readonly HidDeviceSpec HidSpec;
 
         /// <summary>
-        /// The Centurion interface, for the newer headsets -- a different collection and a
-        /// different envelope, but the same feature layer above it, which is why one provider
-        /// serves both. See <see cref="CenturionTransport"/>.
-        ///
         /// Its own spec because a <see cref="HidDeviceSpec"/> matches one usage page, and its
-        /// own product id list because these ids are unverified: they come from Solaar and
-        /// HeadsetControl, not from hardware anyone here has. A precise usage page plus an
-        /// explicit product id is what keeps that from being a risk -- nothing else on the
-        /// machine can match one by accident.
+        /// own id list because these ids are **unverified** -- from Solaar and HeadsetControl,
+        /// not hardware. A precise usage page plus an explicit id is what keeps that safe:
+        /// nothing else on the machine can match one by accident.
         /// </summary>
         public static readonly HidDeviceSpec CenturionHidSpec;
 
         /// <summary>
-        /// A LIGHTSPEED or Unifying receiver, which is one interface carrying up to six
-        /// peripherals rather than being one device itself -- hence the expander, see
-        /// <see cref="LogitechReceiverEnumerator"/>, which is where the "a device exists only
-        /// because it answered" rule lives.
+        /// One interface carrying up to six peripherals rather than being one device itself --
+        /// hence the expander, where the "a device exists only because it answered" rule lives.
         ///
-        /// Its collection is <see cref="RECEIVER_USAGE_PAGE"/>, not <see cref="HidSpec"/>'s,
-        /// so the two cannot match the same interface and registration order between them is
-        /// no longer load-bearing. Keeping receivers first anyway costs nothing and keeps the
-        /// rule simple.
+        /// On <see cref="RECEIVER_USAGE_PAGE"/>, not <see cref="HidSpec"/>'s, so the two cannot
+        /// match the same interface and registration order between them is not load-bearing.
         ///
-        /// Kept to verified receiver ids even though the ping gate now makes a wrong one
-        /// harmless. Widening this to every Logitech receiver is defensible for the first
-        /// time -- but it would change behaviour for every Logitech user, and nobody here has
-        /// a receiver to check it against.
+        /// **Unverified**: the ids come from published tables and nobody here has a receiver.
+        /// The ping gate is what makes that safe -- a wrong id costs one sweep that finds
+        /// nothing, not a wrong reading.
         /// </summary>
         public static readonly HidDeviceSpec ReceiverHidSpec;
 
-            //Static constructor rather than field initializers, the same trap the SteelSeries
-            //and Razer providers document: initializers run in declaration order, so anything
-            //reading a table further down the file would read it while it was still null and
-            //take HidDeviceSpecRegistry's static constructor -- and the app -- down with it.
+            //Static constructor, not field initializers: those run in declaration order, so
+            //reading receiverProductIds further down the file would read it while still null
+            //and take HidDeviceSpecRegistry's static constructor -- and the app -- down with it.
         static LogitechBatteryProvider()
         {
             HidSpec = new HidDeviceSpec(
@@ -176,8 +149,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
 
         public int? ReadBattery(IBatteryDeviceContext ctx)
         {
-                //Cheap rejections first: this runs against every tracked device, including
-                //every Bluetooth one, on every poll.
+                //Cheap rejections first: this runs against every tracked device on every poll.
             if (ctx == null || ctx.Transport != DeviceTransport.UsbHid)
                 return null;
 
@@ -204,17 +176,14 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             }
             catch (Exception e)
             {
-                    //Raw HID access fails for plenty of benign reasons (dongle yanked
-                    //mid-transaction, another process holding the collection). No reading.
                 Log.Write("Logitech", "read failed on '" + ctx.DeviceName + "': " + e.Message);
                 return null;
             }
         }
 
         /// <summary>
-        /// Pick the framing this collection speaks. The usage page decides it and nothing else
-        /// does: a device publishes the HID++ collection or the Centurion one, never both, and
-        /// the feature layer on top is identical either way.
+        /// The usage page decides the framing and nothing else does: a device publishes one
+        /// collection or the other, never both.
         /// </summary>
         private static IHidppTransport OpenTransport(HidInterfaceInfo info)
         {
@@ -223,15 +192,11 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             return HidppTransport.Open(info);
         }
 
-        /// <summary>
-        /// Find which battery feature this device carries, and bind to the first that actually
-        /// produces a value. Only called until one sticks.
-        /// </summary>
         private int? Resolve(IHidppTransport hidpp, IBatteryDeviceContext ctx)
         {
-                //Probing costs one timeout per feature, so make sure something is listening
-                //first -- otherwise a device that is simply switched off would burn the whole
-                //chain's worth of timeouts on the UI thread, every poll.
+                //Probing costs one timeout per feature, so check something is listening first:
+                //a switched-off device would otherwise burn the whole chain on the UI thread,
+                //every poll.
             if (!hidpp.Ping(DeviceIndexFor(ctx), TIMEOUT_MS))
             {
                 Log.Write("Logitech", "'" + ctx.DeviceName + "' is not answering HID++ (switched off?)");
@@ -259,7 +224,6 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             return null;
         }
 
-        /// <summary>Read and decode one battery feature. Null when it has nothing to report.</summary>
         private int? Read(IHidppTransport hidpp, ushort featureId, byte featureIndex, IBatteryDeviceContext ctx)
         {
             switch (featureId)
@@ -291,9 +255,9 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                 return stateOfCharge;
             }
 
-                //State of charge not supported: fall back to the discrete level bitfield. This
-                //really is a coarse four-way enum, so each level becomes a representative
-                //percentage -- a band, not a measurement.
+                //Fall back to the discrete level bitfield, which really is a coarse four-way
+                //enum: each level becomes a representative percentage -- a band, not a
+                //measurement.
             int level = reply[5];
             if ((level & 0x08) != 0) return 90;   //full
             if ((level & 0x04) != 0) return 60;   //good
@@ -319,9 +283,8 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         }
 
         /// <summary>
-        /// Receiver product ids. Not peripheral ids -- one of these covers several products,
-        /// which is exactly why the peripheral behind it has to be discovered rather than
-        /// looked up. From published device tables, unverified here.
+        /// Receiver ids, not peripheral ids -- one covers several products, which is why the
+        /// peripheral behind it is discovered rather than looked up.
         /// </summary>
         private static readonly ushort[] receiverProductIds = new ushort[]
         {

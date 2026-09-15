@@ -20,12 +20,10 @@ namespace PeripheralBatteryMonitor
     /// </summary>
     internal static class Strings
     {
-        /// <summary>Matches the <c>LogicalName</c> the csproj assigns.</summary>
         private const string Prefix = "PeripheralBatteryMonitor.Languages.";
 
         private const string Suffix = ".lang";
 
-        /// <summary>The language every other one falls back to, key by key.</summary>
         private const string FallbackCode = "en";
 
         private static readonly Dictionary<string, string> english =
@@ -33,7 +31,6 @@ namespace PeripheralBatteryMonitor
 
         private static Dictionary<string, string> current = english;
 
-        /// <summary>The languages this build carries, each named in its own language.</summary>
         internal static IList<Language> Available
         {
             get
@@ -67,8 +64,7 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// Switch language. Pass null or empty to follow Windows; an unknown code falls back to
-        /// English rather than failing.
+        /// Null or empty follows Windows; an unknown code falls back to English.
         /// </summary>
         internal static void Use(string code)
         {
@@ -93,8 +89,7 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// One piece of text: the translation, the English text when this language has no line
-        /// for the key, or the key itself when nothing does -- visible, but never a crash.
+        /// The translation, else the English text, else the key itself -- visible, never a crash.
         /// </summary>
         internal static string Get(string key)
         {
@@ -104,7 +99,6 @@ namespace PeripheralBatteryMonitor
             return key;
         }
 
-        /// <summary>Text with <c>{0}</c>-style placeholders, filled in.</summary>
         internal static string Format(string key, params object[] args)
         {
             string template = Get(key);
@@ -120,7 +114,6 @@ namespace PeripheralBatteryMonitor
             }
         }
 
-        /// <summary>Reads one language file out of the exe. Null if this build has no such language.</summary>
         private static Dictionary<string, string> Load(string code)
         {
             using (Stream stream = typeof(Strings).Assembly.GetManifestResourceStream(Prefix + code + Suffix))
@@ -154,7 +147,6 @@ namespace PeripheralBatteryMonitor
             }
         }
 
-        /// <summary>Turns the two escapes a one-line-per-string format needs back into characters.</summary>
         private static string Unescape(string value)
         {
             if (value.IndexOf('\\') < 0)
@@ -194,13 +186,10 @@ namespace PeripheralBatteryMonitor
             }
         }
 
-        /// <summary>One language, as offered in the Settings picker.</summary>
         internal sealed class Language
         {
-            /// <summary>The two-letter code, which is also the file name.</summary>
             internal string Code { get; private set; }
 
-            /// <summary>The language's name for itself.</summary>
             internal string Name { get; private set; }
 
             internal Language(string code, string name)
@@ -209,7 +198,6 @@ namespace PeripheralBatteryMonitor
                 this.Name = name;
             }
 
-            /// <summary>The label the combo box shows.</summary>
             public override string ToString()
             {
                 return Name;

@@ -1,17 +1,15 @@
 namespace PeripheralBatteryMonitor.Providers.Logitech
 {
     /// <summary>
-    /// Converts a single-cell Li-Po terminal voltage into a rough charge percentage.
+    /// Converts a single-cell Li-Po terminal voltage into a rough charge percentage, for
+    /// devices that only implement ADC_MEASUREMENT: the mapping lives in the vendor's software,
+    /// not in the device.
     ///
-    /// Needed because devices that only implement the ADC_MEASUREMENT feature report
-    /// millivolts, not a percentage -- the mapping lives in the vendor's software, not in the
-    /// device. The discharge curve below is the one Solaar uses for Logitech peripherals and
-    /// it is an <b>approximation</b>: the curve is flat between roughly 3.7 V and 4.0 V, so a
-    /// few millivolts of noise there move the result by several percent, and it does not
-    /// account for load or temperature. Expect the number to be in the right band rather
-    /// than exact, and to differ by a few percent from what Logitech G HUB shows.
+    /// Solaar's table, and an <b>approximation</b> -- flat between roughly 3.7 V and 4.0 V, so
+    /// a few millivolts of noise there move the result by several percent, and it accounts for
+    /// neither load nor temperature. Expect the right band, not the same number G HUB shows.
     ///
-    /// Tune by editing the table: it must stay ordered from highest voltage to lowest.
+    /// Must stay ordered from highest voltage to lowest.
     /// </summary>
     public static class LogitechVoltageCurve
     {
@@ -34,9 +32,8 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         };
 
         /// <summary>
-        /// Percentage (0..100) for a terminal voltage in millivolts. Values above/below the
-        /// curve clamp to 100 / 0; in between the two neighbouring points are interpolated so
-        /// the reading moves smoothly instead of snapping between table rows.
+        /// Values outside the curve clamp to 100 / 0; in between, the bracketing points are
+        /// interpolated so the reading moves smoothly instead of snapping between rows.
         /// </summary>
         public static int ToPercentage(int millivolts)
         {
@@ -54,7 +51,6 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
 
                 if (millivolts > lowMv)
                 {
-                        //Linear interpolation between the bracketing points.
                     int span = highMv - lowMv;
                     if (span <= 0)
                         return lowPct;

@@ -8,16 +8,13 @@ using PeripheralBatteryMonitor.Hid;
 namespace PeripheralBatteryMonitor
 {
     /// <summary>
-    /// Discovery layer. Runs two <see cref="DeviceWatcher"/> instances in
-    /// parallel -- one for BLE, one for Bluetooth Classic / BR-EDR -- and maintains the
-    /// live set of paired <see cref="BatteryDevice"/>, notifying the UI via
-    /// <see cref="IDeviceNotification"/>.
+    /// Discovery. Two <see cref="DeviceWatcher"/> instances in parallel -- one for BLE, one
+    /// for Bluetooth Classic / BR-EDR -- maintaining the live set of paired devices.
     ///
-    /// Not every battery-powered device is a Bluetooth one: a peripheral on its own vendor
-    /// dongle has no association endpoint and no pairing, so the watchers never see it.
-    /// Those come from <see cref="HidDeviceSource"/> through <see cref="refreshHidDevices"/>,
-    /// which feeds the same dictionary. Both sources are otherwise indistinguishable to the
-    /// UI -- a device is a device.
+    /// A peripheral on its own vendor dongle has no association endpoint and no pairing, so the
+    /// watchers never see it; those come from <see cref="HidDeviceSource"/> through
+    /// <see cref="refreshHidDevices"/> into the same dictionary. Both sources are
+    /// indistinguishable to the UI.
     /// </summary>
     public class DeviceManager
     {
@@ -68,17 +65,14 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// Re-snapshot the non-Bluetooth (USB HID) devices and reconcile them into the device
-        /// list: newly plugged ones are added, vanished ones removed. There is no watcher to
-        /// subscribe to for these, so the caller drives this from the poll tick -- cheap
-        /// enough to do every time, and that is what makes unplugging the dongle show up.
+        /// There is no watcher behind USB HID devices, so the caller drives this from the poll
+        /// tick -- which is what makes unplugging a dongle show up. Only touches
+        /// <see cref="DeviceTransport.UsbHid"/> entries; the Bluetooth ones belong to the
+        /// watchers.
         ///
-        /// Only touches <see cref="DeviceTransport.UsbHid"/> entries; the Bluetooth ones are
-        /// owned by the watchers.
-        ///
-        /// <paramref name="force"/> is the user asking for this rather than the timer: it
-        /// bypasses the caches inside discovery -- a receiver sweep is the one part of this
-        /// that is not re-run every tick -- so that Refresh means what it says.
+        /// <paramref name="force"/> is the user asking rather than the timer, and bypasses the
+        /// caches inside discovery -- a receiver sweep being the one part not re-run every tick
+        /// -- so that Refresh means what it says.
         /// </summary>
         public void refreshHidDevices(bool force = false)
         {
@@ -150,8 +144,7 @@ namespace PeripheralBatteryMonitor
                         return;
                     }
 
-                        //Forward fresh property values into the cached BatteryDevice so the property-based
-                        //battery strategies see updates without a full re-enumeration.
+                        //So the property-based providers see updates without a re-enumeration.
                     BatteryDevice existing;
                     if (deviceDict.TryGetValue(devUpdate.Id, out existing))
                         existing.UpdateProperties(devUpdate.Properties);
@@ -178,26 +171,22 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// Windows exposes a dual-mode phone as two association endpoints, one per transport,
-        /// rolled up under a single AEP container. On iOS the Classic endpoint carries the name
-        /// the user chose while the BLE one advertises an opaque local name, so once both have
-        /// appeared the Classic name is copied onto the BLE sibling. No device-name pattern and
-        /// no Apple-specific value is assumed.
+        /// Windows exposes a dual-mode phone as two association endpoints under one AEP
+        /// container. On iOS the Classic endpoint carries the name the user chose while the BLE
+        /// one advertises an opaque local name, so the Classic name is copied onto the BLE
+        /// sibling. No device-name pattern and no Apple-specific value is assumed.
         ///
-        /// <b>The container is what establishes that two endpoints are one physical device.</b>
-        /// For a paired device it is the real PnP container id -- verified by dumping a paired
-        /// device's AEP bag and finding the same GUID on its nodes in the device tree. An
-        /// *unpaired* endpoint instead gets one synthesised per protocol and address, so the two
-        /// transports of one unpaired device do not share it; that costs nothing here, since
-        /// only paired devices are tracked at all.
+        /// <b>The container is what proves two endpoints are one physical device</b> -- for a
+        /// paired device it is the real PnP container id, verified against the device tree. An
+        /// *unpaired* endpoint gets one synthesised per protocol and address instead, which
+        /// costs nothing here since only paired devices are tracked.
         ///
         /// The phone category only narrows the scope, and is required on <b>either</b> endpoint
-        /// rather than on both: the container already proves same-device, while the BLE endpoint
-        /// of a phone is not reliably categorised, and demanding it there is enough on its own to
+        /// rather than both: the container already proves same-device, and the BLE endpoint of a
+        /// phone is not reliably categorised -- demanding it there is enough on its own to
         /// silently disable the whole reconcile.
         ///
-        /// This makes the two entries read alike; it does not merge them. A phone still occupies
-        /// two rows and two tooltip lines -- see the note in CLAUDE.md.
+        /// This makes the two entries read alike; it does not merge them.
         /// </summary>
         private void ReconcileSiblingNames(BatteryDevice added)
         {
@@ -239,8 +228,8 @@ namespace PeripheralBatteryMonitor
             if (!device.TryGetProperty(DeviceProperties.PROP_AEP_CONTAINER_ID, out value) || value == null)
                 return false;
 
-                //WinRT delivers this as a boxed Guid; the string form is parsed too rather
-                //than depending on that.
+                //WinRT delivers this as a boxed Guid; the string form is parsed too rather than
+                //depending on that.
             if (value is Guid)
                 containerId = (Guid)value;
             else if (!Guid.TryParse(value.ToString(), out containerId))

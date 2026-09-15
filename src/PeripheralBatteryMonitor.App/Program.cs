@@ -22,8 +22,7 @@ namespace PeripheralBatteryMonitor
                 EmbeddedAssemblies.Install();
                 Run();
 
-                    //Keep ownership for the complete message-loop lifetime even though the
-                    //local itself is otherwise unused after construction.
+                    //Held for the complete message-loop lifetime, though otherwise unused.
                 GC.KeepAlive(mutex);
             }
         }
@@ -34,9 +33,7 @@ namespace PeripheralBatteryMonitor
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void Run()
         {
-                //On net48 these are explicit calls rather than the generated
-                //ApplicationConfiguration.Initialize() of modern .NET, and there is no
-                //Application.SetHighDpiMode either -- the DPI mode comes from app.manifest.
+                //No Application.SetHighDpiMode on net48 -- the DPI mode comes from app.manifest.
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
@@ -49,11 +46,8 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// The saved language code, or "" to follow Windows.
-        ///
-        /// Read here rather than in the Settings form, which is where every other setting is
-        /// loaded: this one has to be known before that form's constructor runs. The form still
-        /// owns writing it.
+        /// Read here rather than in the Settings form, where every other setting is loaded: this
+        /// one has to be known before that form's constructor runs. The form still writes it.
         /// </summary>
         private static string ReadLanguage()
         {
@@ -69,8 +63,6 @@ namespace PeripheralBatteryMonitor
             }
             catch (Exception)
             {
-                    //An unreadable registry is not a reason to refuse to start; English is a
-                    //perfectly serviceable fallback.
                 return "";
             }
         }

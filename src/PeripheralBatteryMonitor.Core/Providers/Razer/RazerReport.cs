@@ -35,8 +35,8 @@ namespace PeripheralBatteryMonitor.Providers.Razer
         /// <summary>90-byte payload plus the leading report id.</summary>
         internal const int WIRE_LENGTH = 91;
 
-        private const int REPORT_ID = 0;          //index of the report id in the wire buffer
-        private const int PAYLOAD = 1;            //where the 90-byte payload starts
+        private const int REPORT_ID = 0;
+        private const int PAYLOAD = 1;
 
             //Offsets within the payload, not the wire buffer. Add PAYLOAD to index the latter.
         private const int OFF_STATUS = 0;
@@ -71,8 +71,8 @@ namespace PeripheralBatteryMonitor.Providers.Razer
         private const int RETRY_MS = 40;
 
         /// <summary>
-        /// Run one command and return its 80-byte argument block, or null if the device did not
-        /// answer, answered something else, or reported a failure.
+        /// The 80-byte argument block, or null if the device did not answer, answered something
+        /// else, or reported a failure.
         /// </summary>
         internal static byte[] Request(HidDevice device, byte transactionId, byte commandClass,
                                        byte commandId, byte dataSize)
@@ -80,8 +80,8 @@ namespace PeripheralBatteryMonitor.Providers.Razer
             if (device == null || device.FeatureReportByteLength != WIRE_LENGTH)
                 return null;
 
-                //Built once: nothing in it varies by attempt, and SetFeature does not write
-                //back into the buffer it sends. A retry is meant to be the identical frame.
+                //Built once: SetFeature does not write back into the buffer it sends, and a
+                //retry is meant to be the identical frame.
             byte[] wire = Build(transactionId, commandClass, commandId, dataSize);
 
             for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++)
@@ -114,8 +114,8 @@ namespace PeripheralBatteryMonitor.Providers.Razer
                 }
 
                     //The reply lands in the same buffer the request occupied, so a device that
-                    //answered nothing at all would hand back our own bytes. Checking the echo
-                    //and the CRC is what tells the two apart.
+                    //answered nothing hands back our own bytes. The echo and the CRC are what
+                    //tell the two apart.
                 if (reply[PAYLOAD + OFF_TRANSACTION_ID] != transactionId ||
                     reply[PAYLOAD + OFF_COMMAND_CLASS] != commandClass ||
                     reply[PAYLOAD + OFF_COMMAND_ID] != commandId)

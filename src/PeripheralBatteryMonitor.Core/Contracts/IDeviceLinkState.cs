@@ -1,9 +1,8 @@
 namespace PeripheralBatteryMonitor.Contracts
 {
     /// <summary>
-    /// Optional capability a provider may implement when it maintains a live link to the
-    /// device (e.g. GATT). Lets <c>BatteryDevice.IsConnected()</c> report connection state
-    /// cheaply -- <see cref="IsLinkUp"/> must NOT perform I/O; it only reports cached state.
+    /// Optional capability for a provider that maintains a live link (only GATT does).
+    /// <see cref="IsLinkUp"/> must not perform I/O -- it reports cached state.
     /// </summary>
     public interface IDeviceLinkState
     {

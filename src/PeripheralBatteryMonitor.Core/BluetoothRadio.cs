@@ -7,37 +7,30 @@ using Windows.Devices.Radios;
 namespace PeripheralBatteryMonitor
 {
     /// <summary>
-    /// Turns the machine's Bluetooth radios off and back on -- the same thing as the
-    /// Bluetooth toggle in Windows Settings, which is what tears the stack down and brings
-    /// it back up. It exists because a wedged stack is the one failure this app cannot poll
-    /// its way out of: every provider keeps timing out until something resets the radio.
+    /// Turns the machine's Bluetooth radios off and back on, the same thing as the toggle in
+    /// Windows Settings. For the one failure polling cannot fix: a wedged stack where every
+    /// provider times out until the radio is reset.
     ///
-    /// <para>Why <see cref="Radio"/> and not the <c>bthserv</c> service: stopping the
-    /// Bluetooth Support Service needs administrator rights and does not touch the radio,
-    /// so it would fix less while asking for more. Disabling the device node in the device
-    /// tree does reset it, but also needs elevation. The radio toggle needs neither.</para>
+    /// <para>Why <see cref="Radio"/> and not <c>bthserv</c>: stopping the Bluetooth Support
+    /// Service needs administrator rights and does not touch the radio, and disabling the device
+    /// node needs elevation too. The radio toggle needs neither, which is what keeps this app
+    /// non-elevated.</para>
     ///
-    /// <para>A restart takes at least the requested downtime, so the caller must not run it
-    /// on the UI thread -- except for <see cref="RequestAccess"/>, which has the opposite
-    /// requirement. See its own remarks.</para>
+    /// <para>A restart blocks for the requested downtime, so do not run it on the UI thread --
+    /// except <see cref="RequestAccess"/>, which has the opposite requirement.</para>
     /// </summary>
     public static class BluetoothRadio
     {
-            //Both are WinRT calls that talk to the radio driver. Generous, because the
-            //failure mode this whole class exists for is a stack that has stopped answering:
-            //hanging for ten seconds is a better report than declaring failure over a slow
-            //driver that would have come back.
+            //Generous, because the failure this class exists for is a stack that has stopped
+            //answering: hanging ten seconds beats declaring failure over a slow driver that
+            //would have come back.
         private const int radioCallTimeoutMs = 10000;
         private const int accessRequestTimeoutMs = 10000;
 
         /// <summary>
-        /// Asks Windows for permission to change radio state, and throws if it says no.
-        ///
-        /// <para><b>Call this on the UI thread</b>, before handing the rest of the work to a
-        /// worker. This is the one call in the class that can show a consent prompt, and a
-        /// WinRT call that may put UI on screen wants a thread with a message loop; the
-        /// desktop answer is normally an immediate Allowed, but that is not something to
-        /// depend on from a thread pool thread.</para>
+        /// <b>Call this on the UI thread</b>, before handing the rest to a worker: it is the
+        /// one call here that can show a consent prompt, and a WinRT call that may put UI on
+        /// screen wants a thread with a message loop.
         /// </summary>
         public static void RequestAccess()
         {
@@ -50,8 +43,8 @@ namespace PeripheralBatteryMonitor
         }
 
         /// <summary>
-        /// True if this machine has a Bluetooth radio at all, so the caller can leave the
-        /// menu entry out rather than offering something that can only fail.
+        /// So the caller can leave the menu entry out rather than offer something that can only
+        /// fail. Enumerating radios is a WinRT call, so decide it once, not on menu open.
         /// </summary>
         public static bool IsAvailable()
         {
@@ -61,17 +54,14 @@ namespace PeripheralBatteryMonitor
             }
             catch (Exception)
             {
-                    //No radio, no Bluetooth driver, or WinRT refusing to enumerate -- all of
-                    //which mean the same thing to the caller.
                 return false;
             }
         }
 
         /// <summary>
-        /// Switches every Bluetooth radio off, waits <paramref name="downtimeMs"/>, and
-        /// switches them back on. Blocks for at least that long, and throws if any step
-        /// fails -- including on the way back up, which is the failure worth reporting: the
-        /// radio is then off and only this method can be asked to try again.
+        /// Blocks for at least <paramref name="downtimeMs"/>, and throws if any step fails --
+        /// including on the way back up, which is the failure worth reporting: the radio is then
+        /// left off.
         /// </summary>
         public static void Restart(int downtimeMs)
         {
@@ -83,11 +73,10 @@ namespace PeripheralBatteryMonitor
 
             Thread.Sleep(downtimeMs);
 
-                //Re-enumerate rather than reusing the handles from above: a radio that went
-                //off can come back as a different Radio instance, and the stale one then
-                //refuses the state change. Name is the only identity a Radio exposes -- there
-                //is no Id on this type -- so that is what the old and new lists are matched
-                //on, falling back to the instance we already hold when nothing matches.
+                //Re-enumerate rather than reuse the handles above: a radio that went off can
+                //come back as a different Radio instance, and the stale one refuses the state
+                //change. Name is the only identity this type exposes, so that is what the two
+                //lists are matched on.
             SetState(Rebind(radios), RadioState.On);
         }
 

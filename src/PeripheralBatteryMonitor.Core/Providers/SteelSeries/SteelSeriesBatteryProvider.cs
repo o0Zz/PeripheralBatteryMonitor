@@ -7,70 +7,54 @@ using PeripheralBatteryMonitor.Hid;
 namespace PeripheralBatteryMonitor.Providers.SteelSeries
 {
     /// <summary>
-    /// Battery for SteelSeries Arctis Nova wireless headsets, which reach the PC on their own
-    /// USB dongle and so are discovered through <c>HidDeviceSource</c> rather than by the
-    /// Bluetooth watchers -- the same shape as the Logitech LIGHTSPEED case.
+    /// Battery for SteelSeries Arctis Nova wireless headsets on their own USB dongle.
     ///
-    /// The protocol is far simpler than HID++: write one command byte to the vendor
-    /// collection at usage page <c>0xFFC0</c> / usage <c>0x0001</c> and the dongle answers with
-    /// a status report carrying the battery level and whether the headset is switched on. There
-    /// is no feature discovery and nothing to cache between polls, so unlike
-    /// <c>LogitechBatteryProvider</c> this type holds no per-device state -- the per-model
-    /// differences are all static data in <see cref="Models"/>.
+    /// Far simpler than HID++: write one command byte to the vendor collection at usage page
+    /// <c>0xFFC0</c> / usage <c>0x0001</c> and the dongle answers with a status report. No
+    /// feature discovery and nothing to cache, so this type holds no per-device state -- every
+    /// per-model difference is static data in <see cref="Models"/>.
     ///
     /// <para>
-    /// Device ids, report layout and the discrete/percentage split are taken from the
-    /// HeadsetControl project's published device descriptions (GPL-3.0). Only those facts were
-    /// used; no code was copied. **None of it has been verified against hardware here** -- see
-    /// the note on <see cref="Models"/>.
+    /// Ids, report layout and the discrete/percentage split come from the HeadsetControl
+    /// project's published device descriptions (GPL-3.0); facts only, no code. **None of it is
+    /// verified against hardware here** -- see the note on <see cref="Models"/>.
     /// </para>
     /// </summary>
     public class SteelSeriesBatteryProvider : IBatteryProvider
     {
         private const ushort STEELSERIES_VENDOR_ID = 0x1038;
 
-            //The vendor collection the dongle answers status requests on. A Nova dongle also
-            //publishes audio-control collections; those do not answer 0xB0.
+            //A Nova dongle also publishes audio-control collections; those do not answer 0xB0.
         private const ushort NOVA_USAGE_PAGE = 0xFFC0;
         private const ushort NOVA_USAGE = 0x0001;
 
-            //Request is the single command byte 0xB0 ("report device status") preceded by
-            //report id 0, then zero-padded to the collection's output report length. These
-            //collections declare no report ids, so byte 0 is always 0 and is not part of the
-            //message -- see the framing note on ReplyIndex in NovaModel.
+            //These collections declare no report ids, so byte 0 is always 0 and is not part of
+            //the message -- see the framing note in NovaModel.
         private const byte REPORT_ID_NONE = 0x00;
         private const byte COMMAND_DEVICE_STATUS = 0xB0;
 
-            //Same budget as the Logitech provider: this runs on the UI thread inside the poll
-            //tick, once per tracked device.
         private const int TIMEOUT_MS = 500;
 
             //The status report carries no echo of the request, so a frame cannot be matched to
-            //it the way a HID++ reply can. The handle is opened per transaction, which makes
-            //the first frame almost always the answer; a couple of spares cover a notification
-            //(volume, chatmix) that happened to be queued first.
+            //it the way a HID++ reply can. Opening the handle per transaction makes the first
+            //frame almost always the answer; the spares cover a notification queued first.
         private const int MAX_FRAMES_PER_REQUEST = 3;
 
-            //Discrete models report 0..4 rather than a percentage. Four steps over the full
-            //range, so each step is 25 points: 0/25/50/75/100. Coarser than it looks -- a
+            //Discrete models report 0..4, so each step is 25 points. Coarser than it looks: a
             //headset reading 25% may be anywhere from a fifth to nearly half full.
         private const int DISCRETE_MAX = 4;
 
         /// <summary>
-        /// The HID interface that stands for one of these headsets, for the discovery layer.
-        ///
-        /// Restricted to an explicit product id list rather than "any SteelSeries device on
-        /// this usage page", for the same reason <c>LogitechBatteryProvider.HidSpec</c> is:
-        /// a dongle that is matched but cannot answer becomes a permanent "unknown battery"
-        /// entry in the tray, which is worse than not listing it.
+        /// An explicit id list rather than "any SteelSeries device on this usage page": a
+        /// dongle matched but unable to answer becomes a permanent "unknown battery" entry in
+        /// the tray, which is worse than not listing it.
         /// </summary>
         public static readonly HidDeviceSpec HidSpec;
 
-            //Assigned here rather than by a field initializer, and that is load-bearing:
-            //initializers run in declaration order, so building the spec inline would read
-            //Models -- declared at the bottom of this file -- while it was still null, and
-            //HidDeviceSpecRegistry's static constructor would die taking the app with it.
-            //A static constructor body runs after every field initializer, whatever the order.
+            //Static constructor, not a field initializer: those run in declaration order, so
+            //building the spec inline would read Models at the bottom of this file while it was
+            //still null and take HidDeviceSpecRegistry's static constructor -- and the app --
+            //down with it. A static constructor body runs after every field initializer.
         static SteelSeriesBatteryProvider()
         {
             HidSpec = new HidDeviceSpec(
@@ -83,8 +67,7 @@ namespace PeripheralBatteryMonitor.Providers.SteelSeries
 
         public int? ReadBattery(IBatteryDeviceContext ctx)
         {
-                //Cheap rejections first: this runs against every tracked device, including
-                //every Bluetooth one, on every poll.
+                //Cheap rejections first: this runs against every tracked device on every poll.
             if (ctx == null || ctx.Transport != DeviceTransport.UsbHid)
                 return null;
 
@@ -117,8 +100,6 @@ namespace PeripheralBatteryMonitor.Providers.SteelSeries
             }
             catch (Exception e)
             {
-                    //Raw HID access fails for plenty of benign reasons (dongle yanked
-                    //mid-transaction, another process holding the collection). No reading.
                 Log.Write("SteelSeries", "read failed on '" + ctx.DeviceName + "': " + e.Message);
                 return null;
             }
@@ -136,8 +117,8 @@ namespace PeripheralBatteryMonitor.Providers.SteelSeries
             if (!hid.Write(request, TIMEOUT_MS))
                 return null;
 
-                //Bound the whole exchange, not just each read, so a chatty dongle cannot hold
-                //the poll tick for MAX_FRAMES_PER_REQUEST * TIMEOUT_MS.
+                //Bound the whole exchange, not each read, so a chatty dongle cannot hold the
+                //poll tick for MAX_FRAMES_PER_REQUEST * TIMEOUT_MS.
             Stopwatch budget = Stopwatch.StartNew();
 
             for (int frame = 0; frame < MAX_FRAMES_PER_REQUEST; frame++)
@@ -181,9 +162,8 @@ namespace PeripheralBatteryMonitor.Providers.SteelSeries
 
             if (reply[model.StateIndex] == model.OfflineValue)
             {
-                    //Headset switched off or out of range. A null return leaves the last known
-                    //level on screen, which is the right answer for a device that is merely
-                    //asleep -- the contract IBatteryProvider documents for null.
+                    //Null leaves the last known level on screen, the right answer for a device
+                    //that is merely asleep.
                 verdict = Verdict.Offline;
                 return null;
             }
@@ -203,20 +183,19 @@ namespace PeripheralBatteryMonitor.Providers.SteelSeries
         /* ============================ model table ============================ */
 
         /// <summary>
-        /// One entry per product id, because the reply layout is not uniform across the range
-        /// and neither is the meaning of the level byte.
+        /// One entry per product id: the reply layout is not uniform across the range and
+        /// neither is the meaning of the level byte.
         /// </summary>
         private sealed class NovaModel
         {
             public readonly ushort ProductId;
 
-                //Index into the input report as Windows delivers it. NOTE the off-by-one
-                //against every published description of this protocol: those are written
-                //against hidapi, which strips the leading report-id byte when a collection
-                //declares no report ids, while ReadFile -- what HidDevice.Read uses -- always
-                //returns it. So an offset documented as "data[2]" is reply[3] here. Getting
-                //this wrong reads a plausible-looking neighbouring byte rather than failing,
-                //so it is the first thing to check if a model reports nonsense.
+                //Index into the report as Windows delivers it, which is off by one from every
+                //published description: those are written against hidapi, which strips the
+                //leading report-id byte when a collection declares no report ids, while ReadFile
+                //always returns it. A documented "data[2]" is reply[3] here. Getting it wrong
+                //reads a plausible neighbouring byte rather than failing, so check it first if a
+                //model reports nonsense.
             public readonly int LevelIndex;
             public readonly int StateIndex;
             public readonly byte OfflineValue;
@@ -251,15 +230,10 @@ namespace PeripheralBatteryMonitor.Providers.SteelSeries
         }
 
         /// <summary>
-        /// Supported product ids.
-        ///
-        /// <para>
-        /// **Not verified on hardware.** Every other device this app supports was confirmed
-        /// against the physical thing before its id went in; these came from HeadsetControl's
-        /// device tables instead. They are as good as that project's testing and no better, so
-        /// treat a model that reports a wrong or impossible level as unproven rather than as a
-        /// bug in the transport -- and check <c>LevelIndex</c> first.
-        /// </para>
+        /// **Not verified on hardware**, unlike every other id in this build: these come from
+        /// HeadsetControl's device tables and are as good as that project's testing, no better.
+        /// Treat a model reporting a wrong level as unproven rather than as a transport bug,
+        /// and check <c>LevelIndex</c> first.
         /// </summary>
         private static readonly NovaModel[] Models =
         {

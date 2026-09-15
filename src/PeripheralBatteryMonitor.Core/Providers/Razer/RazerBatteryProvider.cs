@@ -56,7 +56,7 @@ namespace PeripheralBatteryMonitor.Providers.Razer
         public int? ReadBattery(IBatteryDeviceContext ctx)
         {
                 //Cheap rejections first: this runs against every tracked device on every poll,
-                //and a Razer transaction costs a 60 ms sleep it would be rude to spend twice.
+                //and a transaction costs a 60 ms sleep.
             if (ctx == null || ctx.Transport != DeviceTransport.UsbHid)
                 return null;
 
@@ -95,8 +95,6 @@ namespace PeripheralBatteryMonitor.Providers.Razer
             }
             catch (Exception e)
             {
-                    //Raw HID access fails for plenty of benign reasons (dongle yanked
-                    //mid-transaction, another process holding the collection). No reading.
                 Log.Write("Razer", "read failed on '" + ctx.DeviceName + "': " + e.Message);
                 return null;
             }
@@ -107,10 +105,9 @@ namespace PeripheralBatteryMonitor.Providers.Razer
         /// </summary>
         private static int? ToPercentage(byte raw, string deviceName)
         {
-                //A mouse that is switched off or out of range answers 0 rather than not
-                //answering. Reporting that as a flat battery would fire the low-battery balloon
-                //every poll for a mouse sitting in a drawer, so treat it as "can't read right
-                //now" -- which is what a null return means, and it keeps the last real value.
+                //A mouse switched off or out of range answers 0 rather than not answering.
+                //Reporting that as flat would fire the low-battery balloon every poll for a
+                //mouse sitting in a drawer, so it means "cannot read right now" instead.
             if (raw == 0)
                 return null;
 
