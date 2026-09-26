@@ -73,39 +73,45 @@ namespace PeripheralBatteryMonitor
         {
             lastUpdatedTime = DateTime.Now;
 
-            if (boundProvider != null)
+                //The one place that knows which device the provider, transport and HID lines
+                //below are about. Without it a reader cannot tell one device's Centurion frames
+                //from the next device's.
+            using (Log.Scope(deviceName))
             {
-                int? level = boundProvider.ReadBattery(this);
-                if (level.HasValue)
+                if (boundProvider != null)
                 {
-                    batteryLevel = level.Value;
-                    lastReadSucceeded = true;
-                    return;
+                    int? level = boundProvider.ReadBattery(this);
+                    if (level.HasValue)
+                    {
+                        batteryLevel = level.Value;
+                        lastReadSucceeded = true;
+                        return;
+                    }
                 }
-            }
 
-                //A null reading means "cannot read this device right now", so probing in
-                //priority order doubles as the capability check -- and lets a higher-priority
-                //provider preempt when it comes online.
-            foreach (IBatteryProvider provider in providers)
-            {
-                if (provider == boundProvider)
-                    continue;   //already attempted on the fast path above
-
-                int? level = provider.ReadBattery(this);
-                if (level.HasValue)
+                    //A null reading means "cannot read this device right now", so probing in
+                    //priority order doubles as the capability check -- and lets a higher-priority
+                    //provider preempt when it comes online.
+                foreach (IBatteryProvider provider in providers)
                 {
-                    batteryLevel = level.Value;
-                    boundProvider = provider;
-                    lastReadSucceeded = true;
-                    Log.Write("Battery", Describe(level.Value, provider));
-                    return;
-                }
-            }
+                    if (provider == boundProvider)
+                        continue;   //already attempted on the fast path above
 
-                //Keep the last known level; -1 means never read.
-            lastReadSucceeded = false;
-            Log.Write("Battery", Describe(null, null));
+                    int? level = provider.ReadBattery(this);
+                    if (level.HasValue)
+                    {
+                        batteryLevel = level.Value;
+                        boundProvider = provider;
+                        lastReadSucceeded = true;
+                        Log.Write("Battery", Describe(level.Value, provider));
+                        return;
+                    }
+                }
+
+                    //Keep the last known level; -1 means never read.
+                lastReadSucceeded = false;
+                Log.Write("Battery", Describe(null, null));
+            }
         }
 
         /// <summary>
@@ -115,11 +121,12 @@ namespace PeripheralBatteryMonitor
         /// </summary>
         private string Describe(int? reading, IBatteryProvider provider)
         {
-            return "'" + deviceName + "'"
-                + " transport=" + transport
-                + " level=" + (reading.HasValue ? reading.Value.ToString() + "%" : "none (holding " + batteryLevel + ")")
-                + " connected=" + IsConnected()
-                + " provider=" + (provider != null ? provider.GetType().Name : GetBoundProviderName());
+                //No device name here: every line this method produces is written inside
+                //Log.Scope(deviceName), which prefixes it already.
+            return transport
+                + " " + (reading.HasValue ? reading.Value + "%" : "no reading, holding " + batteryLevel)
+                + (IsConnected() ? " connected " : " disconnected ")
+                + (provider != null ? provider.GetType().Name : GetBoundProviderName());
         }
 
         /// <summary>

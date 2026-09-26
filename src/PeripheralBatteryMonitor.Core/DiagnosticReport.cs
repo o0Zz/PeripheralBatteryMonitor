@@ -25,9 +25,13 @@ namespace PeripheralBatteryMonitor
                 {
                     HidDeviceSpec spec = HidDeviceSpecRegistry.Match(info);
 
+                        //Path on the row, not under it. Everything else about an interface is
+                        //already here, so a line of its own said almost nothing twice -- but it
+                        //cannot be dropped: two collections of one device differ only by their
+                        //mi_/col index, and their rows are otherwise byte-identical.
                     Log.Write("Report", (spec != null ? SUPPORTED : NOT_SUPPORTED) + info
-                        + (spec != null ? "  -> '" + spec.FallbackName + "'" : ""));
-                    Log.Write("Report", CONTINUATION + info.Path);
+                        + (spec != null ? "  -> '" + spec.FallbackName + "'" : "")
+                        + "  " + HidInterfaceInfo.ShortPath(info.Path));
 
                     Probe(info, spec);
                 }

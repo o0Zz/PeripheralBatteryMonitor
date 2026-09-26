@@ -168,7 +168,7 @@ namespace PeripheralBatteryMonitor.Hid
                 lastDescribeFailure[path] = reason;
             }
 
-            Log.Write("Hid", "describe: " + reason + " on " + path);
+            Log.Write("Hid", "describe: " + reason + " on " + HidInterfaceInfo.ShortPath(path));
         }
 
         private static void DescribeSucceeded(string path)
@@ -176,7 +176,7 @@ namespace PeripheralBatteryMonitor.Hid
             lock (lastDescribeFailure)
             {
                 if (lastDescribeFailure.Remove(path))
-                    Log.Write("Hid", "describe: succeeding again on " + path);
+                    Log.Write("Hid", "describe: succeeding again on " + HidInterfaceInfo.ShortPath(path));
             }
         }
 

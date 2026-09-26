@@ -95,7 +95,7 @@ namespace PeripheralBatteryMonitor.Providers.Razer
             }
             catch (Exception e)
             {
-                Log.Write("Razer", "read failed on '" + ctx.DeviceName + "': " + e.Message);
+                Log.Write("Razer", "read failed: " + e.Message);
                 return null;
             }
         }

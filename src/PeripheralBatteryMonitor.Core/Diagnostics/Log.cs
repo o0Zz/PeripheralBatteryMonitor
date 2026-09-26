@@ -73,13 +73,72 @@ namespace PeripheralBatteryMonitor.Diagnostics
             }
         }
 
+            //Whose device the current thread is working on, if anything said so. ThreadStatic
+            //because the poll tick and a WinRT watcher callback can both be inside a read at
+            //once, on different threads, and a shared field would label one with the other's
+            //device.
+        [ThreadStatic] private static string scope;
+
         /// <summary>
-        /// One line: <c>2026-09-11 14:03:22.417 [ 1] [Logitech] message</c>. The number is the
-        /// managed thread id, because WinRT <c>DeviceWatcher</c> callbacks log from arbitrary
-        /// threads and the file would otherwise interleave with no way to see that it had.
+        /// Name the device every line written on this thread belongs to, until the returned
+        /// handle is disposed.
+        ///
+        /// The low-level lines are the ones that need it: <c>[Centurion] -&gt; [8] 51 06 ...</c>
+        /// says nothing about *which* device answered, and a transport cannot say -- it holds a
+        /// handle, not a device. Threading a name through every transport and provider signature
+        /// to reach the log would be a worse trade than an ambient one set at the single place
+        /// that knows it, <c>BatteryDevice.UpdateBatteryLevel</c>.
+        /// </summary>
+        public static IDisposable Scope(string device)
+        {
+            Restore restore = new Restore(scope);
+            scope = device;
+            return restore;
+        }
+
+        private class Restore : IDisposable
+        {
+            private readonly string previous;
+            private bool done;
+
+            public Restore(string previous)
+            {
+                this.previous = previous;
+            }
+
+            public void Dispose()
+            {
+                    //Nested scopes restore in order; disposing twice must not resurrect one.
+                if (done)
+                    return;
+                done = true;
+                scope = previous;
+            }
+        }
+
+            //Wide enough for the longest category in the tree ("SteelSeries"). A longer value
+            //is cut to fit: the columns are the point, and one ragged line breaks the eye's
+            //run down the file.
+        private const int CATEGORY_WIDTH = 11;
+        private const int DEVICE_WIDTH = 24;
+
+            //A cut name ends in this, so it can never be read as a different, shorter device.
+            //Nothing is lost by cutting: the full name is printed once by the Discovery line
+            //that first reports the interface.
+        private const char TRUNCATED = '…';
+
+        /// <summary>
+        /// One line, in fixed columns so the eye can run down one of them:
+        /// <c>2026-09-11 14:03:22.417 |  1 | Centurion   | PRO X 2 LIGHTSPEED       | -&gt; [8] 51 …</c>
+        ///
+        /// The thread id is a column of its own rather than a detail of the message because
+        /// WinRT <c>DeviceWatcher</c> callbacks log from arbitrary threads and the file
+        /// interleaves; the device is the <see cref="Scope"/>, blank when nothing set one.
         /// </summary>
         public static void Write(string category, string message)
         {
+            string device = scope;
+
             lock (gate)
             {
                 if (!EnsureOpen())
@@ -87,12 +146,15 @@ namespace PeripheralBatteryMonitor.Diagnostics
 
                 try
                 {
-                    writer.WriteLine("{0} [{1,2}] [{2}] {3}",
+                    writer.WriteLine("{0} | {1,2} | {2} | {3} | {4}",
                         DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture),
-                        Thread.CurrentThread.ManagedThreadId, category, message);
+                        Thread.CurrentThread.ManagedThreadId,
+                        Column(category, CATEGORY_WIDTH),
+                        Column(device, DEVICE_WIDTH),
+                        message);
 
                         //Close enough: being a few bytes out only moves where the roll happens.
-                    written += message.Length + category.Length + 40;
+                    written += message.Length + CATEGORY_WIDTH + DEVICE_WIDTH + 40;
                     if (written >= MAX_BYTES)
                         Roll();
                 }
@@ -104,6 +166,18 @@ namespace PeripheralBatteryMonitor.Diagnostics
                     disabled = true;
                 }
             }
+        }
+
+        /// <summary>Exactly <paramref name="width"/> characters, padded or cut to fit.</summary>
+        private static string Column(string value, int width)
+        {
+            if (String.IsNullOrEmpty(value))
+                return new string(' ', width);
+            if (value.Length < width)
+                return value.PadRight(width);
+            if (value.Length == width)
+                return value;
+            return value.Substring(0, width - 1) + TRUNCATED;
         }
 
         /// <summary>
@@ -121,9 +195,15 @@ namespace PeripheralBatteryMonitor.Diagnostics
             if (length < 0 || length > data.Length)
                 length = data.Length;
 
-            StringBuilder hex = new StringBuilder(label.Length + 3 * length);
+                //The declared length is printed, so the zero padding a fixed-size report is
+                //filled out with adds nothing but width -- two thirds of a HID++ long frame.
+            int meaningful = length;
+            while (meaningful > 0 && data[meaningful - 1] == 0)
+                meaningful--;
+
+            StringBuilder hex = new StringBuilder(label.Length + 3 * meaningful);
             hex.Append(label).Append(' ').Append('[').Append(length).Append("] ");
-            for (int i = 0; i < length; i++)
+            for (int i = 0; i < meaningful; i++)
             {
                 if (i > 0)
                     hex.Append(' ');
@@ -215,6 +295,13 @@ namespace PeripheralBatteryMonitor.Diagnostics
                 WriteRaw("Log opened: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)
                     + " local (UTC" + DateTime.Now.ToString("zzz", CultureInfo.InvariantCulture) + ")"
                     + " - every line below is local time");
+                WriteRaw(SEPARATOR);
+
+                    //Names the columns every line below is written in, so the layout documents
+                    //itself in the one place a reader always starts.
+                WriteRaw(String.Format("{0} | {1,2} | {2} | {3} | {4}",
+                    "date       time        ", "th",
+                    Column("category", CATEGORY_WIDTH), Column("device", DEVICE_WIDTH), "message"));
                 WriteRaw(SEPARATOR);
             }
             catch (Exception)

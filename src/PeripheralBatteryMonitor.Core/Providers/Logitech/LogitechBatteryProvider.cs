@@ -176,7 +176,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             }
             catch (Exception e)
             {
-                Log.Write("Logitech", "read failed on '" + ctx.DeviceName + "': " + e.Message);
+                Log.Write("Logitech", "read failed: " + e.Message);
                 return null;
             }
         }
@@ -199,7 +199,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                 //every poll.
             if (!hidpp.Ping(DeviceIndexFor(ctx), TIMEOUT_MS))
             {
-                Log.Write("Logitech", "'" + ctx.DeviceName + "' is not answering HID++ (switched off?)");
+                Log.Write("Logitech", "is not answering HID++ (switched off?)");
                 return null;
             }
 
@@ -215,12 +215,12 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
 
                 boundFeatureId = featureId;
                 boundFeatureIndex = featureIndex;
-                Log.Write("Logitech", "'" + ctx.DeviceName + "' bound to feature 0x"
+                Log.Write("Logitech", "bound to feature 0x"
                     + featureId.ToString("X4") + " at index 0x" + featureIndex.ToString("X2"));
                 return level;
             }
 
-            Log.Write("Logitech", "'" + ctx.DeviceName + "' implements no known battery feature");
+            Log.Write("Logitech", "implements no known battery feature");
             return null;
         }
 
@@ -251,7 +251,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             int stateOfCharge = reply[4];
             if (stateOfCharge >= 1 && stateOfCharge <= 100)
             {
-                Log.Write("Logitech", "'" + ctx.DeviceName + "' unifiedBattery soc=" + stateOfCharge + "%");
+                Log.Write("Logitech", "unifiedBattery soc=" + stateOfCharge + "%");
                 return stateOfCharge;
             }
 
@@ -277,7 +277,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             if (dischargeLevel < 1 || dischargeLevel > 100)
                 return null;
 
-            Log.Write("Logitech", "'" + ctx.DeviceName + "' levelStatus=" + dischargeLevel
+            Log.Write("Logitech", "levelStatus=" + dischargeLevel
                 + "% (status=0x" + reply[6].ToString("X2") + ")");
             return dischargeLevel;
         }
@@ -307,13 +307,13 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                 //worse than reporting nothing.
             if (millivolts < 2000 || millivolts > 5000)
             {
-                Log.Write("Logitech", "'" + ctx.DeviceName + "' implausible voltage " + millivolts
+                Log.Write("Logitech", "implausible voltage " + millivolts
                     + "mV from feature 0x" + featureId.ToString("X4") + " -- ignored");
                 return null;
             }
 
             int percent = LogitechVoltageCurve.ToPercentage(millivolts);
-            Log.Write("Logitech", "'" + ctx.DeviceName + "' " + millivolts + "mV -> " + percent
+            Log.Write("Logitech", "" + millivolts + "mV -> " + percent
                 + "% (feature 0x" + featureId.ToString("X4") + ", flags=0x" + reply[6].ToString("X2") + ")");
             return percent;
         }

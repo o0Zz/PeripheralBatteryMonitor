@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Generic;
-using PeripheralBatteryMonitor.Diagnostics;
 using PeripheralBatteryMonitor.Hid;
 using PeripheralBatteryMonitor.Providers;
 
@@ -39,8 +37,6 @@ namespace PeripheralBatteryMonitor
             {
                 HidDeviceSpec spec = HidDeviceSpecRegistry.Match(info);
 
-                LogDecisionOnce(info, spec);
-
                 if (spec == null)
                     continue;
 
@@ -58,35 +54,9 @@ namespace PeripheralBatteryMonitor
             return found;
         }
 
-            //So a permanently unmatched collection writes one line rather than one per poll
-            //tick for the life of the app.
-        private static readonly HashSet<string> loggedInterfaces = new HashSet<string>();
-
-        /// <summary>
-        /// An interface no spec claims is invisible to the entire app -- no device, nothing in
-        /// the tray, nothing in the Info window -- which is the exact shape of every "my device
-        /// does not show up" report, and indistinguishable without this line from a device that
-        /// was found and would not answer.
-        /// </summary>
-        private static void LogDecisionOnce(HidInterfaceInfo info, HidDeviceSpec spec)
-        {
-            lock (loggedInterfaces)
-            {
-                if (!loggedInterfaces.Add(info.Path))
-                    return;
-            }
-
-                //The same two words the startup snapshot's table uses, capitalised for the same
-                //reason: one grep finds every mention of a collection in either place.
-            Log.Write("Discovery", (spec != null ? "Supported by spec '" + spec.FallbackName + "': " : "Not Supported: ")
-                + info + "  " + info.Path);
-        }
-
         private static string GetDeviceName(HidInterfaceInfo info, HidDeviceSpec spec)
         {
-            if (spec != null)
-                return spec.NameFor(info);
-            return String.IsNullOrWhiteSpace(info.Product) ? "Unknown HID device" : info.Product.Trim();
+            return spec.NameFor(info);
         }
     }
 }

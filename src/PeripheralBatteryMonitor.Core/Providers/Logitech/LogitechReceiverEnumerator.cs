@@ -153,7 +153,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             }
             catch (Exception e)
             {
-                Log.Write("Logitech", "receiver sweep failed on " + info.Path + ": " + e.Message);
+                Log.Write("Logitech", "receiver sweep failed on " + HidInterfaceInfo.ShortPath(info.Path) + ": " + e.Message);
             }
 
             Log.Write("Logitech", "receiver sweep found " + found.Count + " device(s)");

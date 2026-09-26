@@ -346,8 +346,52 @@ thing.** The tray's *Open log folder* entry only reveals the file; it generates 
     this app is forbidden to ship — so the behaviour would otherwise depend on a file that is
     never there. Exceptions are logged with `ToString()`, not `Message`: the stack trace and the
     inner exceptions are the point, and an `AggregateException`'s own `Message` names nothing.
-- **Every line carries the managed thread id**, because WinRT `DeviceWatcher` callbacks log
-  from arbitrary threads and the file interleaves with no other way to see that it has.
+- **Every line is five fixed columns**, `date time | th | category | device | message`, so the
+  eye can run down one of them instead of parsing each line:
+
+  ```
+  2026-09-16 14:22:12.674 |  1 | Centurion   | PRO X 2 LIGHTSPEED       | -> [8] 51 06 00 00 1E 00 00 AA
+  2026-09-16 14:22:12.690 |  3 | Battery     | Xbox Wireless Controller | transport=BluetoothLowEnergy level=none
+  2026-09-16 14:22:38.079 |  1 | Logitech    |                          | receiver slot 1: silent
+  ```
+
+  `CATEGORY_WIDTH` is 11 (`SteelSeries`, the longest in the tree) and `DEVICE_WIDTH` 24.
+  **A longer value is cut to fit, ending in `…`** — the columns are the point, and one ragged
+  line breaks the eye's run down the file. The ellipsis is what stops a cut name reading as a
+  different, shorter device. Nothing is lost by cutting: the `Discovery` line that first reports
+  an interface prints the full name. The banner ends with a header row naming the columns, so
+  the layout documents itself where every reader starts.
+- **A device path is logged through `HidInterfaceInfo.ShortPath`, never raw.** Nearly half of
+  `\\?\hid#vid_1b1c&pid_2b00&mi_03&col01#9&1fe59b30&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}\kbd`
+  carries nothing: the `\\?\hid#` prefix is on every path ever written and the trailing GUID is
+  the HID *class* GUID, the same 38 characters on every line of every log. Both go; 98 chars
+  become 51.
+  - **What survives is what varies**: `mi_`/`col` say which USB interface and collection, and
+    the instance id is what tells two identical dongles in two ports apart — which this app
+    treats as two devices, so a log has to be able to show it. The `\kbd` suffix and a receiver
+    child's `#01` survive too.
+  - **Shortening is for logging only.** `Path` stays the identity — it is `PROP_HID_PATH`, the
+    device id, the receiver sweep's cache key and the open-failure dedupe key. Never open or
+    match on the short form.
+  - The `vid_`/`pid_` in the short path duplicates the `VID_`/`PID_` the snapshot's row already
+    prints, and stays anyway: `HidDevice`'s open-failure lines carry no row beside them, so
+    there the path is the only thing naming the device.
+- **The thread id is a column of its own**, because WinRT `DeviceWatcher` callbacks log from
+  arbitrary threads and the file interleaves with no other way to see that it has. It is not
+  made redundant by the device column: that one says *which device*, this one says *which of the
+  possibly-concurrent readers*.
+- **A line written during a device's poll also carries that device's name**, via `Log.Scope`.
+  A transport holds a handle, not a device, so `-> [8] 51 06 …` on its own says nothing about
+  which peripheral answered — unreadable the moment two devices are polled in one tick. Threading a name through every transport and provider signature to reach
+  the log would be the worse trade, so the name is **ambient**: `BatteryDevice.UpdateBatteryLevel`
+  is the single place that knows it, and it wraps the whole read in one `using`.
+  - **`[ThreadStatic]`, and that is load-bearing**, not caution: the poll tick and a WinRT
+    watcher callback can both be inside a read at once on different threads, and a shared field
+    would label one device's frames with the other's name.
+  - **Nothing else may repeat the name.** `BatteryDevice.Describe` and the provider lines used
+    to print it themselves and now do not — inside the scope it would appear twice. A message
+    written outside a scope (discovery, the receiver sweep, the startup snapshot) leaves the
+    column blank, which is correct: those precede any device.
 - **Two call sites dedupe on (path, error code)**: the `CreateFile` failure in `HidDevice`
   and the describe failures in `HidInterfaceEnumerator`. Those are the only two that scale
   with (interfaces × ticks), and vendor software holding a collection open makes them repeat
@@ -361,9 +405,11 @@ thing.** The tray's *Open log folder* entry only reveals the file; it generates 
   discovery's enumeration is pre-filtered to *registered vendor ids*, so the poll tick never
   sees the interface nobody claims — which is the shape of almost every report. It
   enumerates with no filter, once, and writes **one table in one walk** — a fixed-width
-  `[  Supported  ]` / `[Not Supported]` marker, the interface, then its path indented to the
-  same width, with the claiming spec's name appended to the right where it cannot disturb the
-  columns. The marker is fixed-width so the question every report comes down to is both
+  `[  Supported  ]` / `[Not Supported]` marker, the interface, the claiming spec's name, and
+  the short path — all on one row. The path is not a line of its own: everything else about an
+  interface is already on the row, so a second line said almost nothing twice. It cannot be
+  *dropped*, though — two collections of one device differ only by their `mi_`/`col` index, and
+  their rows are otherwise byte-identical. The marker is fixed-width so the question every report comes down to is both
   scannable and greppable.
   - **The marker says Supported / Not Supported, by the author's decision** — not `used` or
     `claimed`, so don't narrow it back. What it actually reports is whether a registered

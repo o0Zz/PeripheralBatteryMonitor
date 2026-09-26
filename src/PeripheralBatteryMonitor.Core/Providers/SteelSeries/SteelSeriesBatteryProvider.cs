@@ -100,7 +100,7 @@ namespace PeripheralBatteryMonitor.Providers.SteelSeries
             }
             catch (Exception e)
             {
-                Log.Write("SteelSeries", "read failed on '" + ctx.DeviceName + "': " + e.Message);
+                Log.Write("SteelSeries", "read failed: " + e.Message);
                 return null;
             }
         }

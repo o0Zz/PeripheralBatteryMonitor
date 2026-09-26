@@ -121,7 +121,7 @@ namespace PeripheralBatteryMonitor.Hid
                 //dongle went away between enumeration and here. Opposite advice, and neither is
                 //visible from "no battery reading".
             Log.Write("Hid", "open failed (error " + error
-                + ", access 0x" + desiredAccess.ToString("X") + ") on " + path);
+                + ", access 0x" + desiredAccess.ToString("X") + ") on " + HidInterfaceInfo.ShortPath(path));
         }
 
         private static void ForgetOpenFailure(string path)
@@ -129,7 +129,7 @@ namespace PeripheralBatteryMonitor.Hid
             lock (lastOpenError)
             {
                 if (lastOpenError.Remove(path))
-                    Log.Write("Hid", "open succeeded again on " + path);
+                    Log.Write("Hid", "open succeeded again on " + HidInterfaceInfo.ShortPath(path));
             }
         }
 
