@@ -9,9 +9,9 @@ It supports :
   - **Bluetooth Low Energy (BLE)** devices (earbuds, fitness bands, modern headsets, BLE mice/keyboards)
   - **Bluetooth Classic (BR/EDR)** devices (older headsets, gaming headsets, AirPods on Windows)
   - **Apple magic mice/trackpads/keyboards** devices
-  - **Logitech LIGHTSPEED** devices (PRO X Wireless headset, ...)
+  - **Logitech LIGHTSPEED** devices (PRO X Wireless headset, PRO X2 LIGHTSPEED, G915 X TKL ...)
   - **Razer** wireless mice (Viper Ultimate, DeathAdder V2/V3/V4 Pro, Basilisk V3 Pro, Orochi V2, ...)
-  - **SteelSeries Arctis Nova** wireless headsets (Nova 5/5X, Nova 7/7P/7X and editions) — *device ids taken from [HeadsetControl](https://github.com/Sapd/HeadsetControl)'s tables, not yet confirmed on hardware; please [open an issue](https://github.com/o0Zz/PeripheralBatteryMonitor/issues) if yours reads a wrong level.*
+  - **SteelSeries Arctis Nova** wireless headsets (Nova 5/5X, Nova 7/7P/7X and editions) — *device ids taken from [HeadsetControl](https://github.com/Sapd/HeadsetControl)
 
 **Notifications**
 Whenever a device drops below 20% a balloon notification fires (once per device, per low-battery transition).

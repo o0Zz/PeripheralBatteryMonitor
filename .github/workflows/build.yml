@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -30,7 +30,7 @@ jobs:
       # supplies the net48 reference assemblies, so no MSBuild/nuget.exe setup and
       # no targeting pack are needed.
       - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
 
@@ -86,7 +86,7 @@ jobs:
           Get-ChildItem $env:OUTPUT_DIR -File | Format-Table Name, Length
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: PeripheralBatteryMonitor-${{ steps.version.outputs.version }}
           path: ${{ env.OUTPUT_DIR }}/PeripheralBatteryMonitor.exe
