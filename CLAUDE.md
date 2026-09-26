@@ -327,6 +327,25 @@ thing.** The tray's *Open log folder* entry only reveals the file; it generates 
     **`BuildDate` is a date and not a timestamp on purpose** — the generated `AssemblyInfo.cs`
     is rewritten whenever a value changes, so a time of day would make every no-op
     `dotnet build` a real recompile of both projects. CI can pin it with `-p:BuildDate=`.
+- **A crash writes itself to the log**, via `App/CrashLog.cs`, wired from `Program.Run` after
+  `EmbeddedAssemblies.Install` — naming `Log` loads Core, so it cannot go any earlier, and
+  `Application.SetUnhandledExceptionMode` must precede the first window. Without it a crash is
+  invisible: the file just stops mid-session, which reads exactly like the user closing the app.
+  The three sinks are not interchangeable.
+  - **`Application.ThreadException` is survivable and is deliberately survived.** It covers the
+    UI thread, which is where the poll tick and every HID transaction run, and swallowing the
+    throw is what keeps a single bad tick from costing the user their tray icon and the menu
+    that reaches *Exit*. The log line is then the only record it happened.
+  - **`AppDomain.CurrentDomain.UnhandledException` cannot stop anything** — a WinRT watcher
+    callback or the radio-restart worker throwing is fatal whatever this does. It exists to get
+    the reason on disk first, which `Log`'s AutoFlush guarantees.
+  - **`TaskScheduler.UnobservedTaskException`** is the one the synchronous
+    `AsTask().Wait(timeout)` pattern throughout Core can produce silently: a call that times out
+    leaves its task running, and whatever it throws afterwards lands nowhere else.
+  - The mode is set explicitly rather than left at `Automatic`, which consults an `.exe.config`
+    this app is forbidden to ship — so the behaviour would otherwise depend on a file that is
+    never there. Exceptions are logged with `ToString()`, not `Message`: the stack trace and the
+    inner exceptions are the point, and an `AggregateException`'s own `Message` names nothing.
 - **Every line carries the managed thread id**, because WinRT `DeviceWatcher` callbacks log
   from arbitrary threads and the file interleaves with no other way to see that it has.
 - **Two call sites dedupe on (path, error code)**: the `CreateFile` failure in `HidDevice`

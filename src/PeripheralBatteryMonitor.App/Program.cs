@@ -33,6 +33,8 @@ namespace PeripheralBatteryMonitor
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void Run()
         {
+            CrashLog.Install();
+
                 //No Application.SetHighDpiMode on net48 -- the DPI mode comes from app.manifest.
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
