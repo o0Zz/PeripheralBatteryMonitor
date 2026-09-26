@@ -1,4 +1,4 @@
-using PeripheralBatteryMonitor.Diagnostics;
+﻿using PeripheralBatteryMonitor.Diagnostics;
 using PeripheralBatteryMonitor.Hid;
 
 namespace PeripheralBatteryMonitor.Providers.Logitech
@@ -36,6 +36,23 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                 //replace. A framing the device does not speak stays silent, which is an answer.
             ProbeFraming("Centurion", CenturionTransport.Open(info));
             ProbeFraming("HID++", HidppTransport.Open(info));
+
+                //The one command the Centurion headsets do answer, asked of every unclassified
+                //Logitech collection: a newer headset under an unknown product id reports its
+                //battery straight into the snapshot, which is the whole point of this file.
+                //The size test is the caller's here rather than CenturionBattery's, so a
+                //collection too small for the framing does not log the same refusal twice.
+            if (info.InputReportByteLength >= CenturionTransport.FRAME_SIZE
+                && info.OutputReportByteLength >= CenturionTransport.FRAME_SIZE)
+            {
+                Log.Write("Probe", "    Centurion vendor battery: "
+                    + Describe(CenturionBattery.Read(info, TIMEOUT_MS)));
+            }
+        }
+
+        private static string Describe(int? level)
+        {
+            return level.HasValue ? level.Value + "%" : "silent";
         }
 
         private static void ProbeFraming(string framing, IHidppTransport hidpp)

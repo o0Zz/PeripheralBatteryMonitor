@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using PeripheralBatteryMonitor.Contracts;
 using PeripheralBatteryMonitor.Diagnostics;
 using PeripheralBatteryMonitor.Hid;
@@ -16,9 +16,12 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
     /// come first; the two that report a raw cell voltage are last, because converting volts
     /// costs accuracy.
     ///
-    /// Two things vary underneath and neither reaches the decoders: the **framing**, chosen by
-    /// usage page in <see cref="OpenTransport"/>, and the **device index**, from the property
-    /// bag -- 0xFF behind its own dongle, 1..6 behind a receiver.
+    /// The **device index** varies underneath and does not reach the decoders: 0xFF behind the
+    /// device's own dongle, 1..6 behind a receiver, read from the property bag.
+    ///
+    /// None of the above applies to the Centurion headsets, which have no feature layer to
+    /// probe: <see cref="ReadBattery"/> branches on the usage page and hands those to
+    /// <see cref="CenturionBattery"/> instead.
     ///
     /// Verified against a PRO X Wireless (VID 0x046D / PID 0x0ABA), which is the awkward case:
     /// it implements *none* of the three standard battery features, only 0x1F20. HID++ 4.2
@@ -41,8 +44,8 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         private const ushort RECEIVER_USAGE_PAGE = 0xFF00;
         private const ushort RECEIVER_USAGE_LONG = 0x0002;
 
-            //The newer headsets, same feature layer inside Centurion framing. A device
-            //publishes one or the other, never both, so the usage page picks the transport.
+            //The newer headsets. A device publishes this page or the HID++ one, never both,
+            //so the usage page is what picks the whole read path -- see CenturionBattery.
         private const ushort CENTURION_USAGE_PAGE = 0xFFA0;
         private const ushort CENTURION_USAGE = 0x0001;
 
@@ -163,7 +166,14 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
 
             try
             {
-                using (IHidppTransport hidpp = OpenTransport(info))
+                    //Centurion is not the feature layer in another envelope: the headsets on
+                    //that page implement no battery feature at all and answer a single fixed
+                    //vendor command instead. Probing features there found nothing and reported
+                    //a headset that was on as switched off.
+                if (info.UsagePage == CENTURION_USAGE_PAGE)
+                    return CenturionBattery.Read(info, TIMEOUT_MS);
+
+                using (IHidppTransport hidpp = HidppTransport.Open(info))
                 {
                     if (hidpp == null)
                         return null;
@@ -179,17 +189,6 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                 Log.Write("Logitech", "read failed: " + e.Message);
                 return null;
             }
-        }
-
-        /// <summary>
-        /// The usage page decides the framing and nothing else does: a device publishes one
-        /// collection or the other, never both.
-        /// </summary>
-        private static IHidppTransport OpenTransport(HidInterfaceInfo info)
-        {
-            if (info.UsagePage == CENTURION_USAGE_PAGE)
-                return CenturionTransport.Open(info);
-            return HidppTransport.Open(info);
         }
 
         private int? Resolve(IHidppTransport hidpp, IBatteryDeviceContext ctx)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using PeripheralBatteryMonitor.Diagnostics;
 using PeripheralBatteryMonitor.Hid;
@@ -6,9 +6,16 @@ using PeripheralBatteryMonitor.Hid;
 namespace PeripheralBatteryMonitor.Providers.Logitech
 {
     /// <summary>
-    /// Centurion: the framing Logitech's newer headsets use to carry HID++ 2.0. The PRO X 2
-    /// LIGHTSPEED (PID 0x0AF7) answers on usage page 0xFFA0 / usage 0x0001 in 64-byte frames
-    /// with report id 0x51, and does not speak the 0x11 framing at all.
+    /// Centurion: the framing Logitech's newer headsets use, on usage page 0xFFA0 / usage
+    /// 0x0001, in 64-byte frames with report id 0x51. They do not speak the 0x11 framing at all.
+    ///
+    /// <b>Nothing reads a battery through this any more.</b> The PRO X 2 LIGHTSPEED (PID
+    /// 0x0AF7) turned out to implement no HID++ battery feature -- it answers one fixed vendor
+    /// command, which <see cref="CenturionBattery"/> sends. What survives here is the envelope
+    /// and the feature layer on top of it, kept for <see cref="LogitechProbe"/>: a Centurion
+    /// headset nobody has classified yet is still worth asking, and the published request
+    /// decomposes into exactly this envelope, so the layout below is confirmed even though no
+    /// device has been seen answering the feature layer carried in it.
     ///
     /// <code>
     /// out: [0x51][cplLength][flags][featureIndex][functionId&lt;&lt;4|swId][params...]  padded to 64
@@ -27,9 +34,9 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
     /// 256 values, up to 1.3 s on the UI thread, with no such headset to test against. The
     /// <c>deviceIndex</c> argument is where it would go.
     ///
-    /// <b>Unverified against hardware.</b> The framing comes from Solaar's implementation and
-    /// the product id from Solaar and HeadsetControl; nobody working on this has a PRO X 2.
-    /// Every transaction is hex-logged for that reason -- see <see cref="LogitechProbe"/>.
+    /// <b>The feature layer over this framing is unverified against hardware</b>, and the one
+    /// device that could have verified it does not implement it. Every transaction is
+    /// hex-logged for that reason -- see <see cref="LogitechProbe"/>.
     /// </summary>
     internal class CenturionTransport : IHidppTransport
     {
