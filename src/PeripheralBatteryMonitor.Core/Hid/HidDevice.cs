@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
@@ -162,7 +162,7 @@ namespace PeripheralBatteryMonitor.Hid
 
                 if (HidNative.WaitForSingleObject(evt, (uint)timeoutMs) != HidNative.WAIT_OBJECT_0)
                 {
-                    HidNative.CancelIo(handle);
+                    CancelAndDrain(handle, overlapped);
                     return false;
                 }
 
@@ -207,7 +207,7 @@ namespace PeripheralBatteryMonitor.Hid
 
                 if (HidNative.WaitForSingleObject(evt, (uint)timeoutMs) != HidNative.WAIT_OBJECT_0)
                 {
-                    HidNative.CancelIo(handle);
+                    CancelAndDrain(handle, overlapped);
                     return false;
                 }
 
@@ -222,6 +222,130 @@ namespace PeripheralBatteryMonitor.Hid
                 Marshal.FreeHGlobal(overlapped);
                 HidNative.CloseHandle(evt);
             }
+        }
+
+        /// <summary>
+        /// Wait for one input report across several handles at once, returning the index of
+        /// the one that spoke, or -1 on timeout.
+        ///
+        /// A device whose protocol is split across two top-level collections needs this:
+        /// Windows gives each collection its own path, so a reply can arrive on either handle
+        /// and waiting on them in turn either misses it or multiplies the timeout. A Logitech
+        /// receiver is exactly that -- see <c>ReceiverTransport</c>.
+        ///
+        /// Reads are issued on every handle, waited on together, and the losers are cancelled,
+        /// which is why the handles must not be read concurrently from elsewhere: CancelIo
+        /// cancels this thread's I/O on the handle, not this one operation.
+        /// </summary>
+        public static int ReadAny(HidDevice[] devices, byte[][] buffers, int timeoutMs, out int bytesRead)
+        {
+            bytesRead = 0;
+            if (devices == null || buffers == null || devices.Length != buffers.Length || devices.Length == 0)
+                return -1;
+
+            IntPtr[] events = new IntPtr[devices.Length];
+            IntPtr[] overlapped = new IntPtr[devices.Length];
+            bool[] pending = new bool[devices.Length];
+            int winner = -1;
+
+            try
+            {
+                for (int i = 0; i < devices.Length; i++)
+                {
+                    HidDevice device = devices[i];
+                    if (device == null || !device.overlapped
+                        || buffers[i] == null || buffers[i].Length < device.InputReportByteLength)
+                        continue;
+
+                    events[i] = HidNative.CreateEvent(IntPtr.Zero, true, false, null);
+                    overlapped[i] = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(HidNative.OVERLAPPED)));
+
+                    HidNative.OVERLAPPED o = new HidNative.OVERLAPPED();
+                    o.hEvent = events[i];
+                    Marshal.StructureToPtr(o, overlapped[i], false);
+
+                    uint read;
+                    if (HidNative.ReadFile(device.handle, buffers[i], (uint)device.InputReportByteLength, out read, overlapped[i]))
+                    {
+                            //Already queued in the driver. Take it and cancel the rest.
+                        bytesRead = (int)read;
+                        winner = i;
+                        break;
+                    }
+
+                    if (Marshal.GetLastWin32Error() == HidNative.ERROR_IO_PENDING)
+                        pending[i] = true;
+                }
+
+                if (winner < 0)
+                    winner = WaitForOne(devices, events, overlapped, pending, timeoutMs, out bytesRead);
+
+                return winner;
+            }
+            finally
+            {
+                for (int i = 0; i < devices.Length; i++)
+                {
+                    if (pending[i] && i != winner)
+                        CancelAndDrain(devices[i].handle, overlapped[i]);
+                    if (overlapped[i] != IntPtr.Zero)
+                        Marshal.FreeHGlobal(overlapped[i]);
+                    if (events[i] != IntPtr.Zero)
+                        HidNative.CloseHandle(events[i]);
+                }
+            }
+        }
+
+        private static int WaitForOne(HidDevice[] devices, IntPtr[] events, IntPtr[] overlapped,
+                                      bool[] pending, int timeoutMs, out int bytesRead)
+        {
+            bytesRead = 0;
+
+                //WaitForMultipleObjects wants the handles packed, so keep the mapping back to
+                //the caller's slot -- a handle whose ReadFile failed outright is not waited on.
+            List<IntPtr> waitOn = new List<IntPtr>();
+            List<int> slotOf = new List<int>();
+            for (int i = 0; i < devices.Length; i++)
+            {
+                if (!pending[i])
+                    continue;
+                waitOn.Add(events[i]);
+                slotOf.Add(i);
+            }
+
+            if (waitOn.Count == 0)
+                return -1;
+
+            uint signalled = HidNative.WaitForMultipleObjects((uint)waitOn.Count, waitOn.ToArray(), false, (uint)timeoutMs);
+            if (signalled < HidNative.WAIT_OBJECT_0 || signalled >= HidNative.WAIT_OBJECT_0 + waitOn.Count)
+                return -1;      //timed out, abandoned, or failed; the finally cancels them all
+
+            int slot = slotOf[(int)(signalled - HidNative.WAIT_OBJECT_0)];
+
+            uint read;
+            if (!HidNative.GetOverlappedResult(devices[slot].handle, overlapped[slot], out read, false))
+                return -1;
+
+            bytesRead = (int)read;
+            return slot;
+        }
+
+        /// <summary>
+        /// Cancel an operation and wait for the driver to be finished with it.
+        ///
+        /// <b>The wait is the point, not the cancel.</b> CancelIo only *requests* cancellation;
+        /// until the operation actually completes the driver still owns the OVERLAPPED and the
+        /// buffer, and freeing them underneath it corrupts the heap at a moment that has
+        /// nothing to do with the code that caused it. GetOverlappedResult with bWait is what
+        /// makes that safe, and it returns as soon as the cancel lands.
+        /// </summary>
+        private static void CancelAndDrain(SafeFileHandle handle, IntPtr overlapped)
+        {
+            if (!HidNative.CancelIo(handle))
+                return;     //nothing outstanding; the caller may free straight away
+
+            uint transferred;
+            HidNative.GetOverlappedResult(handle, overlapped, out transferred, true);
         }
 
         /// <summary>

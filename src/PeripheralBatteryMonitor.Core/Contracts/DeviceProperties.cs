@@ -1,4 +1,4 @@
-namespace PeripheralBatteryMonitor.Contracts
+﻿namespace PeripheralBatteryMonitor.Contracts
 {
     public static class DeviceProperties
     {
@@ -33,5 +33,12 @@ namespace PeripheralBatteryMonitor.Contracts
             //Absent means 0xFF, the device behind its own dongle, so a provider that does not
             //know about this key keeps behaving exactly as it did before receivers.
         public const string PROP_HID_DEVICE_INDEX = "PeripheralBatteryMonitor.Hid.DeviceIndex";
+
+            //The other top-level collection of the same interface, when a device's protocol is
+            //split across two and Windows gives each its own path. Set by the receiver
+            //expander, which has the whole enumeration in hand; a provider reopening one
+            //device later does not, and enumerating per poll tick to find it again would be
+            //the walk the property bag exists to avoid.
+        public const string PROP_HID_COMPANION_PATH = "PeripheralBatteryMonitor.Hid.CompanionPath";
     }
 }

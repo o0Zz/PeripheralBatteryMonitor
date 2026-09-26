@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace PeripheralBatteryMonitor.Hid
 {
@@ -57,6 +57,44 @@ namespace PeripheralBatteryMonitor.Hid
             int end = shorter.IndexOf('}', guid);
             return end < 0 ? shorter.Substring(0, guid)
                            : shorter.Substring(0, guid) + shorter.Substring(end + 1);
+        }
+
+        /// <summary>
+        /// What two top-level collections of the same physical USB interface have in common,
+        /// or null when the path does not have that shape. Two collections match when this is
+        /// equal; nothing else about them is.
+        ///
+        /// <c>\\?\hid#vid_046d&amp;pid_c547&amp;mi_02&amp;col02#b&amp;b78eb83&amp;0&amp;0001#{4d1e55b2-…}</c> keys on
+        /// <c>vid_046d&amp;pid_c547&amp;mi_02|b&amp;b78eb83&amp;0</c>: the <c>colNN</c> suffix and the last
+        /// field of the instance id are the two things that enumerate per collection, and the
+        /// <c>mi_</c> index plus the rest of the instance id are what pin it to one interface of
+        /// one device in one port -- so two identical dongles never collide.
+        ///
+        /// For logging and matching only. <see cref="Path"/> stays the identity.
+        /// </summary>
+        public static string CollectionGroupKey(string path)
+        {
+            if (String.IsNullOrEmpty(path))
+                return null;
+
+            string shorter = ShortPath(path);
+
+            int hash = shorter.IndexOf('#');
+            if (hash < 0)
+                return null;
+
+            string hardware = shorter.Substring(0, hash);
+            string instance = shorter.Substring(hash + 1);
+
+            int col = hardware.LastIndexOf("&col", StringComparison.OrdinalIgnoreCase);
+            if (col < 0)
+                return null;    //a device publishing a single collection has no sibling to find
+
+            int lastField = instance.LastIndexOf('&');
+            if (lastField < 0)
+                return null;
+
+            return hardware.Substring(0, col) + "|" + instance.Substring(0, lastField);
         }
 
             //The diagnostics wire format, so its shape is a contract rather than a debugging

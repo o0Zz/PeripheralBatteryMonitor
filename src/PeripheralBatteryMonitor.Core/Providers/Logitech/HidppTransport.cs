@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using PeripheralBatteryMonitor.Diagnostics;
 using PeripheralBatteryMonitor.Hid;
@@ -6,8 +6,10 @@ using PeripheralBatteryMonitor.Hid;
 namespace PeripheralBatteryMonitor.Providers.Logitech
 {
     /// <summary>
-    /// Logitech HID++ 2.0 over the long-report framing: LIGHTSPEED mice, keyboards and the
-    /// PRO X Wireless headset. <see cref="CenturionTransport"/> is the other framing.
+    /// Logitech HID++ 2.0 over the long-report framing, on a device connected directly to its
+    /// own dongle: LIGHTSPEED mice, keyboards and the PRO X Wireless headset. A device behind a
+    /// *receiver* needs <see cref="ReceiverTransport"/>, which holds both of that receiver's
+    /// collections; <see cref="CenturionTransport"/> is the other framing again.
     ///
     /// <c>[reportId][deviceIndex][featureIndex][functionId&lt;&lt;4 | softwareId][params...]</c>, and
     /// the answer echoes the first four bytes so it can be told apart from the unsolicited
@@ -32,12 +34,12 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             if (info == null)
                 return null;
 
-                //The 7-byte short report (0x10) is deliberately not a fallback. On Windows a
-                //receiver's short and long collections are separate device paths, so a reply to
-                //a short request arrives on the *other* handle -- supporting it is a two-handle
-                //transport, not a smaller buffer. Nothing needs it: 2.0 feature calls work over
-                //the long collection at every device index, and the PRO X collection rejects
-                //report 0x10 outright.
+                //Long frames only, and that is now a statement about this transport rather
+                //than about HID++. A device on its own dongle publishes one collection and
+                //answers everything on it -- verified on the PRO X Wireless, which also
+                //rejects report 0x10 outright. A *receiver* publishes two, needs both, and
+                //goes through ReceiverTransport instead; assuming otherwise here is what made
+                //every receiver slot read as silent.
             if (info.OutputReportByteLength < Hidpp.LONG_FRAME_SIZE || info.InputReportByteLength < Hidpp.LONG_FRAME_SIZE)
             {
                 Log.Write("HID++", "refusing " + info + ": reports smaller than a "

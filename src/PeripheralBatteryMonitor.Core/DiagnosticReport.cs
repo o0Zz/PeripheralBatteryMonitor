@@ -49,10 +49,7 @@ namespace PeripheralBatteryMonitor
 
             IHidInterfaceProbe probe = HidInterfaceProbeRegistry.Match(info);
             if (probe == null)
-            {
-                Log.Write("Report", CONTINUATION + "no probe registered for VID_" + info.VendorId.ToString("X4"));
                 return;
-            }
 
             try
             {

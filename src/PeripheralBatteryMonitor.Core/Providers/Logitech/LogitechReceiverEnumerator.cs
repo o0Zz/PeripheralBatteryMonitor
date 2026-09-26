@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using PeripheralBatteryMonitor.Contracts;
 using PeripheralBatteryMonitor.Diagnostics;
 using PeripheralBatteryMonitor.Hid;
 
@@ -18,6 +19,10 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
     /// surfaced. That makes a receiver id shared across products harmless -- 0xC547 ships with
     /// the G915 X TKL, the PRO X Superlight and the G502 X alike -- because nothing here names
     /// the peripheral from the receiver's id. It asks the device.
+    ///
+    /// The conversation goes through <see cref="ReceiverTransport"/>, which holds the
+    /// receiver's short *and* long collections. Holding only the long one is what made every
+    /// slot answer `silent` -- see that file.
     ///
     /// <b>Unverified against hardware.</b> The ping gate is what makes that safe to ship: a
     /// wrong id costs one sweep that finds nothing, not a wrong reading.
@@ -82,7 +87,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             //the spec matches.
         private static readonly Dictionary<string, Sweep> sweeps = new Dictionary<string, Sweep>();
 
-        public List<HidDiscoveredDevice> Expand(HidInterfaceInfo info, HidDeviceSpec spec, bool force)
+        public List<HidDiscoveredDevice> Expand(HidInterfaceInfo info, IList<HidInterfaceInfo> present, HidDeviceSpec spec, bool force)
         {
             lock (sweeps)
             {
@@ -95,15 +100,16 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
 
                 Sweep fresh = new Sweep();
                 fresh.When = DateTime.UtcNow;
-                fresh.Devices = Probe(info, spec, out fresh.OpenFailed);
+                fresh.Devices = Probe(info, ReceiverTransport.FindShortCollection(info, present), spec, out fresh.OpenFailed);
                 sweeps[info.Path] = fresh;
                 return fresh.Devices;
             }
         }
 
-        /// <summary>One open handle for the whole sweep: six separate opens cost more than the
-        /// pings do.</summary>
-        private static List<HidDiscoveredDevice> Probe(HidInterfaceInfo info, HidDeviceSpec spec, out bool openFailed)
+        /// <summary>One pair of open handles for the whole sweep: six separate opens cost more
+        /// than the pings do.</summary>
+        private static List<HidDiscoveredDevice> Probe(HidInterfaceInfo info, HidInterfaceInfo shortInfo,
+                                                       HidDeviceSpec spec, out bool openFailed)
         {
             List<HidDiscoveredDevice> found = new List<HidDiscoveredDevice>();
             openFailed = false;
@@ -114,7 +120,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                     //missing" report; without this line it looks like a sweep that never ran.
                 Log.Write("Logitech", "receiver sweep: " + info);
 
-                using (IHidppTransport hidpp = HidppTransport.Open(info))
+                using (ReceiverTransport hidpp = ReceiverTransport.Open(info, shortInfo))
                 {
                     if (hidpp == null)
                     {
@@ -122,14 +128,18 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                         return found;   //retried in a minute; the usual cause is vendor software
                     }
 
+                        //Asked before the pings and only ever logged: it is the one line that
+                        //separates "nothing is paired to this dongle" from "we asked the wrong
+                        //way", which six silent slots cannot. Nothing branches on it, so a
+                        //receiver that does not answer costs one short timeout and no device.
+                    LogConnectedSlots(hidpp);
+
                     for (byte index = FIRST_INDEX; index <= LAST_INDEX; index++)
                     {
                         if (!hidpp.Ping(index, PING_TIMEOUT_MS))
                         {
-                                //Silent means "no device paired here" and "paired but switched
-                                //off" alike -- the receiver answers for neither, and its one
-                                //reply that would tell them apart is a HID++ 1.0 error it sends
-                                //on the short collection, which is a handle this does not hold.
+                                //Silent still covers "no device paired here" and "paired but
+                                //switched off" alike. The bitmap above is what tells them apart.
                             Log.Write("Logitech", "receiver slot " + index + ": silent");
                             continue;
                         }
@@ -147,7 +157,12 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                         Log.Write("Logitech", "receiver slot " + index + " = '" + name
                             + "', battery feature 0x" + featureId.ToString("X4"));
 
-                        found.Add(ProviderHid.Describe(info, name, index));
+                        HidDiscoveredDevice child = ProviderHid.Describe(info, name, index);
+                            //So the per-poll battery read can reopen both collections without
+                            //walking the HID stack again to rediscover the short one.
+                        if (shortInfo != null)
+                            child.Properties[DeviceProperties.PROP_HID_COMPANION_PATH] = shortInfo.Path;
+                        found.Add(child);
                     }
                 }
             }
@@ -158,6 +173,30 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
 
             Log.Write("Logitech", "receiver sweep found " + found.Count + " device(s)");
             return found;
+        }
+
+        private static void LogConnectedSlots(ReceiverTransport hidpp)
+        {
+            int bitmap = hidpp.ReadConnectedSlots(PING_TIMEOUT_MS);
+            if (bitmap < 0)
+            {
+                Log.Write("Logitech", "receiver did not report its connected slots");
+                return;
+            }
+
+            StringBuilder slots = new StringBuilder();
+            for (byte index = FIRST_INDEX; index <= LAST_INDEX; index++)
+            {
+                if ((bitmap & (1 << (index - 1))) == 0)
+                    continue;
+                if (slots.Length > 0)
+                    slots.Append(", ");
+                slots.Append(index);
+            }
+
+            Log.Write("Logitech", "receiver reports connected slots: "
+                + (slots.Length == 0 ? "none" : slots.ToString())
+                + " (bitmap 0x" + bitmap.ToString("X2") + ")");
         }
 
         private static bool HasBatteryFeature(IHidppTransport hidpp, byte deviceIndex, out ushort featureId)

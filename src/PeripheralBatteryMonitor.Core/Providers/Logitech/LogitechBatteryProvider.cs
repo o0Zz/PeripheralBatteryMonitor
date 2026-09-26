@@ -173,7 +173,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                 if (info.UsagePage == CENTURION_USAGE_PAGE)
                     return CenturionBattery.Read(info, TIMEOUT_MS);
 
-                using (IHidppTransport hidpp = HidppTransport.Open(info))
+                using (IHidppTransport hidpp = OpenTransport(ctx, info))
                 {
                     if (hidpp == null)
                         return null;
@@ -189,6 +189,20 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                 Log.Write("Logitech", "read failed: " + e.Message);
                 return null;
             }
+        }
+
+        /// <summary>
+        /// A device discovered behind a receiver carries the receiver's *other* collection in
+        /// its property bag, and needs both -- root replies can arrive on either. A device on
+        /// its own dongle has one collection and is addressed entirely over it.
+        /// </summary>
+        private static IHidppTransport OpenTransport(IBatteryDeviceContext ctx, HidInterfaceInfo info)
+        {
+            HidInterfaceInfo companion = ProviderHid.CompanionFromProperties(ctx, Hidpp.SHORT_FRAME_SIZE);
+            if (companion != null)
+                return ReceiverTransport.Open(info, companion);
+
+            return HidppTransport.Open(info);
         }
 
         private int? Resolve(IHidppTransport hidpp, IBatteryDeviceContext ctx)

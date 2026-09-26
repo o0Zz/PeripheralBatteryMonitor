@@ -1,4 +1,4 @@
-using PeripheralBatteryMonitor.Diagnostics;
+﻿using PeripheralBatteryMonitor.Diagnostics;
 
 namespace PeripheralBatteryMonitor.Providers.Logitech
 {
@@ -9,10 +9,15 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
     /// </summary>
     internal static class Hidpp
     {
-            //20 bytes total (1 id + 19). The 7-byte short report (0x10) is a Unifying-era
-            //thing and writing it to a collection that does not declare it fails outright.
+            //20 bytes total (1 id + 19), and 7 (1 id + 6) for the short one. A device behind
+            //its own dongle publishes only the long collection and is addressed entirely over
+            //it; a *receiver* publishes both and needs both -- see ReceiverTransport. Writing
+            //a short report to a collection that does not declare it fails outright, which is
+            //why the choice is never a size calculation.
         public const byte REPORT_LONG = 0x11;
         public const int LONG_FRAME_SIZE = 20;
+        public const byte REPORT_SHORT = 0x10;
+        public const int SHORT_FRAME_SIZE = 7;
 
             //The device behind its own receiver, as opposed to 1..6 on a multi-device one.
         public const byte DEVICE_INDEX_DIRECT = 0xFF;

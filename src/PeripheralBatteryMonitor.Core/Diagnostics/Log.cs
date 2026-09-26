@@ -293,8 +293,7 @@ namespace PeripheralBatteryMonitor.Diagnostics
                     + " - Culture: ui=" + CultureInfo.CurrentUICulture.Name
                     + ", formatting=" + CultureInfo.CurrentCulture.Name);
                 WriteRaw("Log opened: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)
-                    + " local (UTC" + DateTime.Now.ToString("zzz", CultureInfo.InvariantCulture) + ")"
-                    + " - every line below is local time");
+                    + " local (UTC" + DateTime.Now.ToString("zzz", CultureInfo.InvariantCulture) + ")");
                 WriteRaw(SEPARATOR);
 
                     //Names the columns every line below is written in, so the layout documents

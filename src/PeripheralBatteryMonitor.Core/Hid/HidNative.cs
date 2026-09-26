@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
@@ -25,6 +25,7 @@ namespace PeripheralBatteryMonitor.Hid
 
         internal const int ERROR_IO_PENDING = 997;
         internal const uint WAIT_OBJECT_0 = 0;
+        internal const uint WAIT_FAILED = 0xFFFFFFFF;
 
         internal const int HIDP_STATUS_SUCCESS = 0x00110000;
 
@@ -158,5 +159,8 @@ namespace PeripheralBatteryMonitor.Hid
 
         [DllImport("kernel32.dll", SetLastError = true)]
         internal static extern uint WaitForSingleObject(IntPtr handle, uint milliseconds);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        internal static extern uint WaitForMultipleObjects(uint count, IntPtr[] handles, bool waitAll, uint milliseconds);
     }
 }

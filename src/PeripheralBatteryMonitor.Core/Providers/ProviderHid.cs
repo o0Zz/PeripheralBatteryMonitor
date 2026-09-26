@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using PeripheralBatteryMonitor.Contracts;
 using PeripheralBatteryMonitor.Hid;
@@ -57,6 +57,27 @@ namespace PeripheralBatteryMonitor.Providers
             if (TryGetInt(ctx, DeviceProperties.PROP_HID_USAGE, out number))
                 info.Usage = (ushort)number;
 
+            return info;
+        }
+
+        /// <summary>
+        /// The second collection of the same interface, when discovery recorded one, or null.
+        ///
+        /// The report lengths are not in the bag and are not read back: a caller asks for this
+        /// because it knows what the companion carries, and the one case that exists -- a HID++
+        /// receiver's short collection -- is 7 bytes by protocol definition rather than by what
+        /// the descriptor happens to say. <paramref name="reportLength"/> is that number.
+        /// </summary>
+        internal static HidInterfaceInfo CompanionFromProperties(IBatteryDeviceContext ctx, int reportLength)
+        {
+            object path;
+            if (ctx == null || !ctx.TryGetProperty(DeviceProperties.PROP_HID_COMPANION_PATH, out path) || path == null)
+                return null;
+
+            HidInterfaceInfo info = new HidInterfaceInfo();
+            info.Path = path.ToString();
+            info.InputReportByteLength = reportLength;
+            info.OutputReportByteLength = reportLength;
             return info;
         }
 

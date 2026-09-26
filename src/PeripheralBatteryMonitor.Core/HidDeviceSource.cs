@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using PeripheralBatteryMonitor.Hid;
 using PeripheralBatteryMonitor.Providers;
 
@@ -33,7 +33,9 @@ namespace PeripheralBatteryMonitor
             if (vendorIds.Count == 0)
                 return found;
 
-            foreach (HidInterfaceInfo info in HidInterfaceEnumerator.Enumerate(vendorIds))
+            List<HidInterfaceInfo> present = HidInterfaceEnumerator.Enumerate(vendorIds);
+
+            foreach (HidInterfaceInfo info in present)
             {
                 HidDeviceSpec spec = HidDeviceSpecRegistry.Match(info);
 
@@ -42,7 +44,7 @@ namespace PeripheralBatteryMonitor
 
                 if (spec.Expander != null)
                 {
-                    List<HidDiscoveredDevice> children = spec.Expander.Expand(info, spec, force);
+                    List<HidDiscoveredDevice> children = spec.Expander.Expand(info, present, spec, force);
                     if (children != null)
                         found.AddRange(children);
                     continue;
