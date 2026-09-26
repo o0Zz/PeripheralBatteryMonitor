@@ -147,7 +147,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         /// </summary>
         private static byte DeviceIndexFor(IBatteryDeviceContext ctx)
         {
-            return ProviderHid.DeviceIndexOf(ctx, Hidpp.DEVICE_INDEX_DIRECT);
+            return ProviderHid.DeviceIndexOf(ctx, HidppTransport.DEVICE_INDEX_DIRECT);
         }
 
         public int? ReadBattery(IBatteryDeviceContext ctx)
@@ -173,7 +173,12 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                 if (info.UsagePage == CENTURION_USAGE_PAGE)
                     return CenturionBattery.Read(info, TIMEOUT_MS);
 
-                using (IHidppTransport hidpp = OpenTransport(ctx, info))
+                    //Null for a device on its own dongle. A device discovered behind a
+                    //receiver carries the receiver's *other* collection in its bag and needs
+                    //both, because root replies can arrive on either.
+                HidInterfaceInfo companion = ProviderHid.CompanionFromProperties(ctx, HidppTransport.SHORT_FRAME_SIZE);
+
+                using (HidppTransport hidpp = HidppTransport.Open(info, companion))
                 {
                     if (hidpp == null)
                         return null;
@@ -191,21 +196,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             }
         }
 
-        /// <summary>
-        /// A device discovered behind a receiver carries the receiver's *other* collection in
-        /// its property bag, and needs both -- root replies can arrive on either. A device on
-        /// its own dongle has one collection and is addressed entirely over it.
-        /// </summary>
-        private static IHidppTransport OpenTransport(IBatteryDeviceContext ctx, HidInterfaceInfo info)
-        {
-            HidInterfaceInfo companion = ProviderHid.CompanionFromProperties(ctx, Hidpp.SHORT_FRAME_SIZE);
-            if (companion != null)
-                return ReceiverTransport.Open(info, companion);
-
-            return HidppTransport.Open(info);
-        }
-
-        private int? Resolve(IHidppTransport hidpp, IBatteryDeviceContext ctx)
+        private int? Resolve(HidppTransport hidpp, IBatteryDeviceContext ctx)
         {
                 //Probing costs one timeout per feature, so check something is listening first:
                 //a switched-off device would otherwise burn the whole chain on the UI thread,
@@ -237,7 +228,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             return null;
         }
 
-        private int? Read(IHidppTransport hidpp, ushort featureId, byte featureIndex, IBatteryDeviceContext ctx)
+        private int? Read(HidppTransport hidpp, ushort featureId, byte featureIndex, IBatteryDeviceContext ctx)
         {
             switch (featureId)
             {
@@ -255,7 +246,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         }
 
         /// <summary>0x1004 getStatus: a percentage when supported, else a discrete level flag.</summary>
-        private static int? ReadUnifiedBattery(IHidppTransport hidpp, byte featureIndex, IBatteryDeviceContext ctx)
+        private static int? ReadUnifiedBattery(HidppTransport hidpp, byte featureIndex, IBatteryDeviceContext ctx)
         {
             byte[] reply = hidpp.Request(DeviceIndexFor(ctx), featureIndex, 0x01, null, TIMEOUT_MS);
             if (reply == null || reply.Length < 7)
@@ -280,7 +271,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         }
 
         /// <summary>0x1000 getBatteryLevelStatus: percentage in byte 0, 0 meaning "unknown".</summary>
-        private static int? ReadLevelStatus(IHidppTransport hidpp, byte featureIndex, IBatteryDeviceContext ctx)
+        private static int? ReadLevelStatus(HidppTransport hidpp, byte featureIndex, IBatteryDeviceContext ctx)
         {
             byte[] reply = hidpp.Request(DeviceIndexFor(ctx), featureIndex, 0x00, null, TIMEOUT_MS);
             if (reply == null || reply.Length < 7)
@@ -308,7 +299,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         };
 
         /// <summary>0x1001 / 0x1F20: raw cell voltage in millivolts, converted by the curve.</summary>
-        private static int? ReadVoltage(IHidppTransport hidpp, ushort featureId, byte featureIndex, IBatteryDeviceContext ctx)
+        private static int? ReadVoltage(HidppTransport hidpp, ushort featureId, byte featureIndex, IBatteryDeviceContext ctx)
         {
             byte[] reply = hidpp.Request(DeviceIndexFor(ctx), featureIndex, 0x00, null, TIMEOUT_MS);
             if (reply == null || reply.Length < 7)

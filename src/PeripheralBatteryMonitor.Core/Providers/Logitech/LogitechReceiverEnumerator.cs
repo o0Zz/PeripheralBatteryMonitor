@@ -20,7 +20,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
     /// the G915 X TKL, the PRO X Superlight and the G502 X alike -- because nothing here names
     /// the peripheral from the receiver's id. It asks the device.
     ///
-    /// The conversation goes through <see cref="ReceiverTransport"/>, which holds the
+    /// The conversation goes through <see cref="HidppTransport"/>, which holds the
     /// receiver's short *and* long collections. Holding only the long one is what made every
     /// slot answer `silent` -- see that file.
     ///
@@ -100,7 +100,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
 
                 Sweep fresh = new Sweep();
                 fresh.When = DateTime.UtcNow;
-                fresh.Devices = Probe(info, ReceiverTransport.FindShortCollection(info, present), spec, out fresh.OpenFailed);
+                fresh.Devices = Probe(info, HidppTransport.FindShortCollection(info, present), spec, out fresh.OpenFailed);
                 sweeps[info.Path] = fresh;
                 return fresh.Devices;
             }
@@ -120,7 +120,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                     //missing" report; without this line it looks like a sweep that never ran.
                 Log.Write("Logitech", "receiver sweep: " + info);
 
-                using (ReceiverTransport hidpp = ReceiverTransport.Open(info, shortInfo))
+                using (HidppTransport hidpp = HidppTransport.Open(info, shortInfo))
                 {
                     if (hidpp == null)
                     {
@@ -175,7 +175,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             return found;
         }
 
-        private static void LogConnectedSlots(ReceiverTransport hidpp)
+        private static void LogConnectedSlots(HidppTransport hidpp)
         {
             int bitmap = hidpp.ReadConnectedSlots(PING_TIMEOUT_MS);
             if (bitmap < 0)
@@ -199,7 +199,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                 + " (bitmap 0x" + bitmap.ToString("X2") + ")");
         }
 
-        private static bool HasBatteryFeature(IHidppTransport hidpp, byte deviceIndex, out ushort featureId)
+        private static bool HasBatteryFeature(HidppTransport hidpp, byte deviceIndex, out ushort featureId)
         {
             foreach (ushort candidate in batteryFeatures)
             {
@@ -213,7 +213,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
             return false;
         }
 
-        private static string ReadDeviceName(IHidppTransport hidpp, byte deviceIndex)
+        private static string ReadDeviceName(HidppTransport hidpp, byte deviceIndex)
         {
             byte featureIndex = hidpp.GetFeatureIndex(deviceIndex, FEATURE_DEVICE_NAME, QUERY_TIMEOUT_MS);
             if (featureIndex == 0)

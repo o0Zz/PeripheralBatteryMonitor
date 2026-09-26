@@ -1,18 +1,16 @@
-﻿using PeripheralBatteryMonitor.Diagnostics;
+using PeripheralBatteryMonitor.Diagnostics;
 using PeripheralBatteryMonitor.Hid;
 
 namespace PeripheralBatteryMonitor.Providers.Logitech
 {
     /// <summary>
-    /// Talks to a Logitech vendor collection and hex-logs what comes back, for the startup
-    /// snapshot.
+    /// Asks a Logitech vendor collection nobody has classified yet the two questions worth
+    /// asking, and hex-logs what comes back, for the startup snapshot.
     ///
-    /// It exists because the Centurion support was written blind: Solaar's framing and an
-    /// independently observed battery exchange agree on the request header exactly and
-    /// disagree on where the reply's payload begins, and that offset cannot be settled without
-    /// the hardware. Rather than guess and read a plausible neighbouring byte, this asks the
-    /// device -- a root ping and a root <c>getFeature</c> are the protocol's two most benign
-    /// transactions, and their replies pin the offsets.
+    /// It exists because discovery only ever opens collections a registered spec claims, so a
+    /// device the app does not recognise is invisible to every other line in the log -- and
+    /// that is the shape of almost every report. A framing the collection does not speak stays
+    /// silent, which is itself an answer.
     /// </summary>
     internal class LogitechProbe : IHidInterfaceProbe
     {
@@ -31,42 +29,35 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
 
         public void Probe(HidInterfaceInfo info)
         {
-                //Both framings, not whichever the usage page suggests: these are collections
-                //nobody has classified yet, so guessing here would be the guess this exists to
-                //replace. A framing the device does not speak stays silent, which is an answer.
-            ProbeFraming("Centurion", CenturionTransport.Open(info));
-            ProbeFraming("HID++", HidppTransport.Open(info));
+            ProbeHidpp(info);
 
-                //The one command the Centurion headsets do answer, asked of every unclassified
-                //Logitech collection: a newer headset under an unknown product id reports its
-                //battery straight into the snapshot, which is the whole point of this file.
-                //The size test is the caller's here rather than CenturionBattery's, so a
-                //collection too small for the framing does not log the same refusal twice.
-            if (info.InputReportByteLength >= CenturionTransport.FRAME_SIZE
-                && info.OutputReportByteLength >= CenturionTransport.FRAME_SIZE)
+                //The one command the Centurion headsets answer. A newer headset under an
+                //unknown product id reports its battery straight into the snapshot, which is
+                //the whole point of this file. The size test is here rather than in
+                //CenturionBattery so a collection too small for the framing does not log the
+                //same refusal twice.
+            if (info.InputReportByteLength >= CenturionBattery.FRAME_SIZE
+                && info.OutputReportByteLength >= CenturionBattery.FRAME_SIZE)
             {
+                int? level = CenturionBattery.Read(info, TIMEOUT_MS);
                 Log.Write("Probe", "    Centurion vendor battery: "
-                    + Describe(CenturionBattery.Read(info, TIMEOUT_MS)));
+                    + (level.HasValue ? level.Value + "%" : "silent"));
             }
         }
 
-        private static string Describe(int? level)
+        private static void ProbeHidpp(HidInterfaceInfo info)
         {
-            return level.HasValue ? level.Value + "%" : "silent";
-        }
-
-        private static void ProbeFraming(string framing, IHidppTransport hidpp)
-        {
-            if (hidpp == null)
-                return;
-
-            using (hidpp)
+                //No companion collection: this is a lone unclassified interface, and pairing it
+                //with a sibling is discovery's job, not a diagnostic's.
+            using (HidppTransport hidpp = HidppTransport.Open(info, null))
             {
+                if (hidpp == null)
+                    return;
+
                     //0xFF is a device behind its own dongle, 0x01 the first slot of a receiver.
-                    //Centurion ignores the argument, so its duplicate line is harmless.
-                foreach (byte deviceIndex in new byte[] { Hidpp.DEVICE_INDEX_DIRECT, 0x01 })
+                foreach (byte deviceIndex in new byte[] { HidppTransport.DEVICE_INDEX_DIRECT, 0x01 })
                 {
-                    string who = "    " + framing + " index 0x" + deviceIndex.ToString("X2");
+                    string who = "    HID++ index 0x" + deviceIndex.ToString("X2");
 
                     if (!hidpp.Ping(deviceIndex, TIMEOUT_MS))
                     {
@@ -82,10 +73,8 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
                     if (featureIndex == 0)
                         continue;
 
-                        //The raw wire frame the transport hex-logs is the real output here --
-                        //this reply is the one whose payload offset is in doubt.
                     byte[] reply = hidpp.Request(deviceIndex, featureIndex, 0x01, null, TIMEOUT_MS);
-                    Log.WriteHex("Probe", who + " 0x1004 getStatus, normalised:", reply, reply == null ? 0 : reply.Length);
+                    Log.WriteHex("Probe", who + " 0x1004 getStatus:", reply, reply == null ? 0 : reply.Length);
                 }
             }
         }

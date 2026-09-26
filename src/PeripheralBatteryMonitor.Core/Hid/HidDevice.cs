@@ -231,7 +231,7 @@ namespace PeripheralBatteryMonitor.Hid
         /// A device whose protocol is split across two top-level collections needs this:
         /// Windows gives each collection its own path, so a reply can arrive on either handle
         /// and waiting on them in turn either misses it or multiplies the timeout. A Logitech
-        /// receiver is exactly that -- see <c>ReceiverTransport</c>.
+        /// receiver is exactly that -- see <c>HidppTransport</c>.
         ///
         /// Reads are issued on every handle, waited on together, and the losers are cancelled,
         /// which is why the handles must not be read concurrently from elsewhere: CancelIo

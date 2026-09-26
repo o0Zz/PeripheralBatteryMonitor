@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using PeripheralBatteryMonitor.Diagnostics;
 using PeripheralBatteryMonitor.Hid;
@@ -46,13 +46,20 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
     internal static class CenturionBattery
     {
             //Sent verbatim, padded with zeros to the frame size. It decomposes into the
-            //Centurion envelope CenturionTransport documents -- report 0x51, cplLength 0x08,
-            //flags 0x00, feature index 0x03, function 1 with software id 0xA, parameters
-            //00 03 00 04 0A -- and that decomposition is what confirms the envelope. It is
-            //written out rather than assembled because the five parameter bytes have never
+            //Centurion envelope -- report 0x51, cplLength 0x08, flags 0x00, feature index
+            //0x03, function 1 with software id 0xA, parameters 00 03 00 04 0A. That it
+            //decomposes so cleanly is what confirms Solaar's description of the envelope. It
+            //is written out rather than assembled because the five parameter bytes have never
             //been decoded, so there is nothing to name them after.
         private static readonly byte[] BATTERY_REQUEST =
             { 0x51, 0x08, 0x00, 0x03, 0x1A, 0x00, 0x03, 0x00, 0x04, 0x0A };
+
+        public const byte REPORT_CENTURION = 0x51;
+
+            //Fixed, and not derived from the collection's declared report length: the frame is
+            //64 bytes including the report id, which is what Solaar writes and what the 63-byte
+            //maximum payload it documents implies.
+        public const int FRAME_SIZE = 64;
 
         private const byte KIND_ACK = 0x03;
         private const byte KIND_POWER = 0x05;
@@ -74,11 +81,11 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
 
         public static int? Read(HidInterfaceInfo info, int timeoutMs)
         {
-            if (info.OutputReportByteLength < CenturionTransport.FRAME_SIZE
-                || info.InputReportByteLength < CenturionTransport.FRAME_SIZE)
+            if (info.OutputReportByteLength < FRAME_SIZE
+                || info.InputReportByteLength < FRAME_SIZE)
             {
                 Log.Write("Centurion", "refusing " + info + ": reports smaller than a "
-                    + CenturionTransport.FRAME_SIZE + "-byte frame");
+                    + FRAME_SIZE + "-byte frame");
                 return null;
             }
 
@@ -126,7 +133,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         /// </summary>
         private static int? Decode(byte[] reply, int read)
         {
-            bool ours = read > OFFSET_CHARGING_STATE && reply[0] == CenturionTransport.REPORT_CENTURION;
+            bool ours = read > OFFSET_CHARGING_STATE && reply[0] == REPORT_CENTURION;
             Log.WriteHex("Centurion", ours ? "<-" : "<- (ignored)", reply, Math.Min(read, LOG_BYTES));
             if (!ours)
                 return null;
