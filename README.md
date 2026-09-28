@@ -3,7 +3,7 @@
 ![Banner Gif of Tray](doc/img/bat_banner.png)
 
 ## Introduction
-Peripheral Battery Monitor adds a small and simple battery display to your system tray, so you can see the remaining life of any wireless devices connected to your PC at a glance.
+Peripheral Battery Monitor adds a battery icon to your system tray, so you can see the remaining life of any wireless devices connected.
 
 It supports :
   - **Bluetooth Low Energy (BLE)** devices (earbuds, fitness bands, modern headsets, BLE mice/keyboards)
@@ -12,41 +12,28 @@ It supports :
   - **Logitech LIGHTSPEED** devices (PRO X Wireless headset, PRO X2 LIGHTSPEED, G915 X TKL ...)
   - **Razer** wireless mice (Viper Ultimate, DeathAdder V2/V3/V4 Pro, Basilisk V3 Pro, Orochi V2, ...)
   - **SteelSeries Arctis Nova** wireless headsets (Nova 5/5X, Nova 7/7P/7X and editions)
-  - **8BitDo** controllers in DInput mode, on their 2.4 GHz dongle or a cable (Ultimate 2 Wireless, Ultimate 3, Pro 2, Pro 3, SN30 Pro, SF30 Pro) — XInput mode exposes no battery (Ultimate 2 Wireless: hold **B** while powering on to switch)
+  - **8BitDo** controllers in DInput mode (Ultimate 2 Wireless, Ultimate 3, Pro 2, Pro 3, SN30 Pro, SF30 Pro)
 
-**Notifications**
-Whenever a device drops below 20% a balloon notification fires (once per device, per low-battery transition).
-
-**Auto Startup**
-When activated, the application starts automatically at Windows logon.
-
-**Adjustable Refresh Rate**
-Configure how often the app polls battery levels (1 min – 24 h).
-
-**One tray icon per device**
-Optionally show a separate tray icon for every paired device instead of one aggregate icon for the lowest battery. Each icon displays its own battery glyph and tooltip.
-
-**Multiple languages**
-English, French, German, Italian, Spanish and Simplified Chinese. The app follows Windows by default; pick a language explicitly in Settings and it applies straight away.
-
-**Hide unknown-battery devices**
-Optionally hide devices whose battery cannot be read from the tray, balloon tooltip and Info popup.
+**Notifications**: Whenever a device drops below 20% a balloon notification fires (once per device, per low-battery transition).
+**Auto Startup**: When activated, the application starts automatically at Windows logon.
+**Adjustable Refresh Rate**: Configure how often the app polls battery levels (1 min – 24 h).
+**One tray icon per device**: Optionally show a separate tray icon for every paired device instead of one aggregate icon for the lowest battery.
+**Multiple languages**: English, French, German, Italian, Spanish and Simplified Chinese.
+**Hide unknown-battery devices**: Optionally hide devices whose battery cannot be read from the tray, balloon tooltip and Info popup.
 
 ## Quick Start Guide
 Follow the directions below to get started!
 
 **Step 1.** Download `PeripheralBatteryMonitor.exe` from the [latest release](https://github.com/o0Zz/PeripheralBatteryMonitor/releases).
-
 **Step 2.** Double-click `PeripheralBatteryMonitor.exe` to start it.
-
-**Step 3.** Open the system tray overflow popup and locate the battery icon. Drag it to the visible tray area if you want it always shown.
-
+**Step 3.** Open the system tray overflow popup and locate the battery icon.
 **Step 4.** Double-click the icon to see the per-device list, or right-click for *Settings* / *About* / *Exit*.
 
 *Auto-start is off by default — enable it in Settings if you want the app to launch with Windows.*
 
 ## ⚙️Settings and Configuration⚙️
 ![Settings Banner Photo](doc/img/bat_set_banner.png)
+
 ### How to Access Settings
 When the application is running, right-click the battery icon in the system tray and select *Settings*. All changes apply immediately — no restart required.
 
@@ -105,18 +92,13 @@ When the application is running, right-click the battery icon in the system tray
   - Exit and restart the application if the problem persists
     > A notification fires once per low-battery transition (when a device drops to ≤ 20% after being above it). It won't repeat every refresh while the device stays low.
 
-- **Multiple tray icons**
-  - Check whether *Show one tray icon per device* is enabled
-    > The application allows only one running instance. Multiple live icons are expected only when the per-device icon setting is enabled; after an abnormal exit, a stale icon disappears when Windows refreshes the tray area.
-
 - **Your device isn't listed, or reads the wrong level**
   - Open the log: tray icon → right-click → *Open log folder*
   - Attach `log.txt` to your [issue](https://github.com/o0Zz/PeripheralBatteryMonitor/issues)
-    > The application always writes `%LOCALAPPDATA%\PeripheralBatteryMonitor\log.txt`, so the log for the session you just had is already there — there's nothing to switch on first. It records every HID interface on the machine and which ones the application recognised, which is exactly what's needed to add support for a device it can't see. The file rolls at 1 MB and keeps one previous copy. It contains device names and hardware ids, so skim it before posting; you can delete it at any time, including while the application is running.
-
+  
 ## Build from source
 
-Requires only the [.NET SDK](https://dotnet.microsoft.com/download) (8.0 or newer). The solution targets .NET Framework 4.8, but both projects are SDK-style and the reference assemblies come from a NuGet package, so no Visual Studio, no targeting pack and no `nuget.exe` are needed.
+Requires [.NET SDK](https://dotnet.microsoft.com/download) (8.0 or newer).
 
 ```sh
 dotnet build PeripheralBatteryMonitor.sln -c Release
