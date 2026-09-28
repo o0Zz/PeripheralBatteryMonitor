@@ -5,21 +5,22 @@
 ## Introduction
 Peripheral Battery Monitor adds a battery icon to your system tray, so you can see the remaining life of any wireless devices connected.
 
-It supports :
-  - **Bluetooth Low Energy (BLE)** devices (earbuds, fitness bands, modern headsets, BLE mice/keyboards)
-  - **Bluetooth Classic (BR/EDR)** devices (older headsets, gaming headsets, AirPods on Windows)
-  - **Apple magic mice/trackpads/keyboards** devices
-  - **Logitech LIGHTSPEED** devices (PRO X Wireless headset, PRO X2 LIGHTSPEED, G915 X TKL ...)
-  - **Razer** wireless mice (Viper Ultimate, DeathAdder V2/V3/V4 Pro, Basilisk V3 Pro, Orochi V2, ...)
-  - **SteelSeries Arctis Nova** wireless headsets (Nova 5/5X, Nova 7/7P/7X and editions)
-  - **8BitDo** controllers in DInput mode (Ultimate 2 Wireless, Ultimate 3, Pro 2, Pro 3, SN30 Pro, SF30 Pro)
+Device supported :
+ - **Bluetooth Low Energy (BLE)** devices (earbuds, fitness bands, modern headsets, BLE mice/keyboards)
+ - **Bluetooth Classic (BR/EDR)** devices (older headsets, gaming headsets, AirPods on Windows)
+ - **Apple magic mice/trackpads/keyboards** devices
+ - **Logitech LIGHTSPEED** devices (PRO X Wireless headset, PRO X2 LIGHTSPEED, G915 X TKL ...)
+ - **Razer** wireless mice (Viper Ultimate, DeathAdder V2/V3/V4 Pro, Basilisk V3 Pro, Orochi V2, ...)
+ - **SteelSeries Arctis Nova** wireless headsets (Nova 5/5X, Nova 7/7P/7X and editions)
+ - **8BitDo** controllers in DInput mode (Ultimate 2 Wireless, Ultimate 3, Pro 2, Pro 3, SN30 Pro, SF30 Pro)
 
-**Notifications**: Whenever a device drops below 20% a balloon notification fires (once per device, per low-battery transition).
-**Auto Startup**: When activated, the application starts automatically at Windows logon.
-**Adjustable Refresh Rate**: Configure how often the app polls battery levels (1 min – 24 h).
-**One tray icon per device**: Optionally show a separate tray icon for every paired device instead of one aggregate icon for the lowest battery.
-**Multiple languages**: English, French, German, Italian, Spanish and Simplified Chinese.
-**Hide unknown-battery devices**: Optionally hide devices whose battery cannot be read from the tray, balloon tooltip and Info popup.
+Features:
+ - **Notifications**: Whenever a device drops below 20% a balloon notification fires (once per device, per low-battery transition).
+ - **Auto Startup**: When activated, the application starts automatically at Windows logon.
+ - **Adjustable Refresh Rate**: Configure how often the app polls battery levels (1 min – 24 h).
+ - **One tray icon per device**: Optionally show a separate tray icon for every paired device instead of one aggregate icon for the lowest battery.
+ - **Multiple languages**: English, French, German, Italian, Spanish and Simplified Chinese.
+ - **Hide unknown-battery devices**: Optionally hide devices whose battery cannot be read from the tray, balloon tooltip and Info popup.
 
 ## Quick Start Guide
 Follow the directions below to get started!
