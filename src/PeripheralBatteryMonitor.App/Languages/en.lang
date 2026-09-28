@@ -77,6 +77,7 @@ about.device.apple = Apple Magic Mouse, Trackpad and Keyboard
 about.device.logitech = Logitech LIGHTSPEED and Unifying devices — on their own dongle or paired to a receiver
 about.device.steelseries = SteelSeries Arctis Nova 5 / 7 wireless headsets
 about.device.razer = Razer wireless mice on a HyperSpeed dongle or Bluetooth
+about.device.eightbitdo = 8BitDo controllers in DInput mode — on their 2.4 GHz dongle or a cable
 # {0} the project URL
 about.author = by o0Zz — {0}
 about.link.failed = Could not open the page

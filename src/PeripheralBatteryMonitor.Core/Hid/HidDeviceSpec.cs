@@ -64,6 +64,11 @@ namespace PeripheralBatteryMonitor.Hid
                 return false;
             if (info.VendorId != VendorId)
                 return false;
+                //The rule in the class summary, enforced: some families (8BitDo) keep one
+                //product id across USB and Bluetooth, so an id list alone would list a paired
+                //controller twice.
+            if (HidInterfaceInfo.IsBluetoothPath(info.Path))
+                return false;
             if (UsagePage != 0 && info.UsagePage != UsagePage)
                 return false;
             if (Usage != 0 && info.Usage != Usage)

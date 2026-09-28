@@ -70,6 +70,7 @@ about.device.apple = Apple Magic Mouse、Trackpad 和 Keyboard
 about.device.logitech = Logitech LIGHTSPEED 与 Unifying 设备 — 使用自带接收器或已配对到接收器
 about.device.steelseries = SteelSeries Arctis Nova 5 / 7 无线耳机
 about.device.razer = 使用 HyperSpeed 接收器或蓝牙的 Razer 无线鼠标
+about.device.eightbitdo = DInput 模式下的 8BitDo 手柄 — 通过 2.4 GHz 接收器或数据线
 about.author = 作者 o0Zz — {0}
 about.link.failed = 无法打开页面
 

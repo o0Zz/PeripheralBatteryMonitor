@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using PeripheralBatteryMonitor.Hid;
+using PeripheralBatteryMonitor.Providers.EightBitDo;
 using PeripheralBatteryMonitor.Providers.Logitech;
 using PeripheralBatteryMonitor.Providers.Razer;
 using PeripheralBatteryMonitor.Providers.SteelSeries;
@@ -30,6 +31,8 @@ namespace PeripheralBatteryMonitor.Providers
             Register(LogitechBatteryProvider.CenturionHidSpec);  //Logitech LIGHTSPEED, Centurion framing (PRO X 2 headset)
             Register(SteelSeriesBatteryProvider.HidSpec);        //SteelSeries Arctis Nova 5 / 7 dongles
             Register(RazerBatteryProvider.HidSpec);              //Razer wireless mice (matched by the 91-byte feature report)
+            Register(EightBitDoBatteryProvider.GamepadHidSpec);  //8BitDo controllers in DInput mode
+            Register(EightBitDoBatteryProvider.JoystickHidSpec); //8BitDo controllers in DInput mode, joystick collection
         }
 
         public static void Register(HidDeviceSpec spec)

@@ -70,6 +70,7 @@ about.device.apple = Apple Magic Mouse, Trackpad und Keyboard
 about.device.logitech = Logitech LIGHTSPEED- und Unifying-Geräte — am eigenen Dongle oder an einem Empfänger
 about.device.steelseries = Kabellose Headsets SteelSeries Arctis Nova 5 / 7
 about.device.razer = Kabellose Razer-Mäuse am HyperSpeed-Dongle oder über Bluetooth
+about.device.eightbitdo = 8BitDo-Controller im DInput-Modus — über ihren 2,4-GHz-Dongle oder per Kabel
 about.author = von o0Zz — {0}
 about.link.failed = Die Seite konnte nicht geöffnet werden
 

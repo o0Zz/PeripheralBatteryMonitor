@@ -21,6 +21,7 @@ namespace PeripheralBatteryMonitor
             "about.device.logitech",
             "about.device.steelseries",
             "about.device.razer",
+            "about.device.eightbitdo",
         };
 
         internal AboutForm()

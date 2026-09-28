@@ -59,6 +59,20 @@ namespace PeripheralBatteryMonitor.Hid
                            : shorter.Substring(0, guid) + shorter.Substring(end + 1);
         }
 
+            //Bluetooth HID paths open with the service class the HID stack bound to instead of
+            //"vid_": HID over BR/EDR (0x1124) or HID over GATT (0x1812), e.g.
+            //\\?\hid#{00001812-0000-1000-8000-00805f9b34fb}_dev_vid&02046d_pid&b02a...
+        private const string BLUETOOTH_CLASSIC_HID = "{00001124-0000-1000-8000-00805f9b34fb}";
+        private const string BLUETOOTH_LE_HID = "{00001812-0000-1000-8000-00805f9b34fb}";
+
+        public static bool IsBluetoothPath(string path)
+        {
+            if (String.IsNullOrEmpty(path))
+                return false;
+            return path.IndexOf(BLUETOOTH_CLASSIC_HID, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   path.IndexOf(BLUETOOTH_LE_HID, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         /// <summary>
         /// What two top-level collections of the same physical USB interface have in common,
         /// or null when the path does not have that shape. Two collections match when this is

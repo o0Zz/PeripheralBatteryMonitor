@@ -11,7 +11,8 @@ It supports :
   - **Apple magic mice/trackpads/keyboards** devices
   - **Logitech LIGHTSPEED** devices (PRO X Wireless headset, PRO X2 LIGHTSPEED, G915 X TKL ...)
   - **Razer** wireless mice (Viper Ultimate, DeathAdder V2/V3/V4 Pro, Basilisk V3 Pro, Orochi V2, ...)
-  - **SteelSeries Arctis Nova** wireless headsets (Nova 5/5X, Nova 7/7P/7X and editions) — *device ids taken from [HeadsetControl](https://github.com/Sapd/HeadsetControl)
+  - **SteelSeries Arctis Nova** wireless headsets (Nova 5/5X, Nova 7/7P/7X and editions)
+  - **8BitDo** controllers in DInput mode, on their 2.4 GHz dongle or a cable (Ultimate 2 Wireless, Ultimate 3, Pro 2, Pro 3, SN30 Pro, SF30 Pro) — XInput mode exposes no battery (Ultimate 2 Wireless: hold **B** while powering on to switch)
 
 **Notifications**
 Whenever a device drops below 20% a balloon notification fires (once per device, per low-battery transition).

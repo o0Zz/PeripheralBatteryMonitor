@@ -70,6 +70,7 @@ about.device.apple = Apple Magic Mouse, Trackpad y Keyboard
 about.device.logitech = Dispositivos Logitech LIGHTSPEED y Unifying — con su propio receptor USB o emparejados a un receptor
 about.device.steelseries = Auriculares inalámbricos SteelSeries Arctis Nova 5 / 7
 about.device.razer = Ratones inalámbricos Razer con adaptador HyperSpeed o Bluetooth
+about.device.eightbitdo = Mandos 8BitDo en modo DInput — con su dongle de 2,4 GHz o por cable
 about.author = por o0Zz — {0}
 about.link.failed = No se ha podido abrir la página
 

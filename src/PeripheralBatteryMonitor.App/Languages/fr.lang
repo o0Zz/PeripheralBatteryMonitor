@@ -70,6 +70,7 @@ about.device.apple = Apple Magic Mouse, Trackpad et Keyboard
 about.device.logitech = Périphériques Logitech LIGHTSPEED et Unifying — sur leur propre dongle ou associés à un récepteur
 about.device.steelseries = Casques sans fil SteelSeries Arctis Nova 5 / 7
 about.device.razer = Souris sans fil Razer sur dongle HyperSpeed ou Bluetooth
+about.device.eightbitdo = Manettes 8BitDo en mode DInput — sur leur dongle 2,4 GHz ou par câble
 about.author = par o0Zz — {0}
 about.link.failed = Impossible d'ouvrir la page
 
