@@ -80,7 +80,7 @@ When the application is running, right-click the battery icon in the system tray
 - **Bluetooth Classic device not appearing**
   - Make sure the device is paired in Windows Settings → Bluetooth & devices
   - Make sure the device is currently connected (powered on)
-    > Only paired devices are tracked. Unpaired devices won't be picked up. Battery for Classic devices depends on Windows itself surfacing the value through device properties, which not every driver does.
+    > Only paired devices are tracked. Unpaired devices won't be picked up. Battery for Classic devices depends on Windows itself surfacing the value through device properties, which not every driver does. When it does, the value sits either on the Bluetooth endpoint or on the headset's Hands-Free profile node; both are read.
 
 - **Not auto-starting on system startup**
   - Confirm *Launch application on startup* is checked in Settings

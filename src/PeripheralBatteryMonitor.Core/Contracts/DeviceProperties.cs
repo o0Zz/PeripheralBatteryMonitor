@@ -17,6 +17,11 @@
         public const string PROP_AEP_CONTAINER_ID = "System.Devices.Aep.ContainerId";
         public const string PROP_AEP_CATEGORY = "System.Devices.Aep.Category";
 
+            //The PnP device-node spelling of PROP_AEP_CONTAINER_ID. For a paired device the
+            //two hold the same GUID, which is what lets a provider walk from an endpoint to
+            //the nodes Windows hangs the battery level on.
+        public const string PROP_CONTAINER_ID = "System.Devices.ContainerId";
+
         /* ---- Keys this app synthesises for HID-discovered devices ---- */
 
             //The app-name prefix keeps these from ever colliding with a canonical Windows
