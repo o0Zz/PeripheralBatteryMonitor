@@ -97,7 +97,8 @@ The `PackageReference` is `ExcludeAssets=runtime`, the equivalent of the old `<P
   and the describe failures in `HidInterfaceEnumerator`. Those are the only two that scale
   with (interfaces × ticks), and vendor software holding a collection open makes them repeat
   one unchanging fact hundreds of times a day. A *change* — including back to success — is
-  the event worth a line. Everything else logs every tick, on purpose.
+  the event worth a line. `AppleBatteryProvider`'s diagnosis follows the same rule, keyed per
+  device instead of per path. Everything else logs every tick, on purpose.
 - **`DiagnosticReport.WriteStartupSnapshot`** covers the one gap the continuous log cannot:
   discovery's enumeration is pre-filtered to *registered vendor ids*, so the poll tick never
   sees the interface nobody claims — which is the shape of almost every report. It

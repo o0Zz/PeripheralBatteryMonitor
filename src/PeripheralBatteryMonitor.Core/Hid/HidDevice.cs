@@ -43,7 +43,7 @@ namespace PeripheralBatteryMonitor.Hid
         /// </summary>
         public static HidDevice Open(HidInterfaceInfo info)
         {
-            return OpenInternal(info, true, HidNative.GENERIC_READ | HidNative.GENERIC_WRITE);
+            return OpenInternal(info, true, HidNative.GENERIC_READ | HidNative.GENERIC_WRITE, out _);
         }
 
         /// <summary>
@@ -55,9 +55,9 @@ namespace PeripheralBatteryMonitor.Hid
         /// overlapped handle ("can incorrectly report that the operation is complete"). There
         /// is no timeout to lose -- the call never waits on device traffic.
         /// </summary>
-        public static HidDevice OpenForReportRequests(HidInterfaceInfo info)
+        public static HidDevice OpenForReportRequests(HidInterfaceInfo info, out int error)
         {
-            return OpenInternal(info, false, HidNative.GENERIC_READ | HidNative.GENERIC_WRITE);
+            return OpenInternal(info, false, HidNative.GENERIC_READ | HidNative.GENERIC_WRITE, out error);
         }
 
         /// <summary>
@@ -74,11 +74,12 @@ namespace PeripheralBatteryMonitor.Hid
         /// </summary>
         public static HidDevice OpenForFeatureReports(HidInterfaceInfo info)
         {
-            return OpenInternal(info, false, 0);
+            return OpenInternal(info, false, 0, out _);
         }
 
-        private static HidDevice OpenInternal(HidInterfaceInfo info, bool overlapped, uint desiredAccess)
+        private static HidDevice OpenInternal(HidInterfaceInfo info, bool overlapped, uint desiredAccess, out int error)
         {
+            error = 0;
             if (info == null || String.IsNullOrEmpty(info.Path))
                 return null;
 
@@ -91,7 +92,7 @@ namespace PeripheralBatteryMonitor.Hid
             if (h.IsInvalid)
             {
                     //Before anything else can overwrite the thread's last error.
-                int error = Marshal.GetLastWin32Error();
+                error = Marshal.GetLastWin32Error();
                 LogOpenFailureOnce(info.Path, error, desiredAccess);
                 h.Dispose();
                 return null;
@@ -352,11 +353,15 @@ namespace PeripheralBatteryMonitor.Hid
         /// GET_REPORT on the control pipe -- byte 0 carries the id being asked for. Unlike
         /// <see cref="Read"/> this never blocks on device traffic.
         /// </summary>
-        public bool GetInputReport(byte[] report)
+        public bool GetInputReport(byte[] report, out int error)
         {
+            error = 0;
             if (report == null || report.Length == 0)
                 return false;
-            return HidNative.HidD_GetInputReport(handle, report, report.Length);
+            if (HidNative.HidD_GetInputReport(handle, report, report.Length))
+                return true;
+            error = Marshal.GetLastWin32Error();
+            return false;
         }
 
         /// <summary>
@@ -377,14 +382,6 @@ namespace PeripheralBatteryMonitor.Hid
             if (report == null || report.Length != FeatureReportByteLength)
                 return false;
             return HidNative.HidD_GetFeature(handle, report, report.Length);
-        }
-
-        public string GetSerialNumber()
-        {
-            byte[] buffer = new byte[HidNative.STRING_BYTES];
-            if (!HidNative.HidD_GetSerialNumberString(handle, buffer, buffer.Length))
-                return "";
-            return HidNative.DecodeString(buffer);
         }
 
         /// <summary>

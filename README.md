@@ -77,6 +77,11 @@ When the application is running, right-click the battery icon in the system tray
   - Some devices simply don't report battery to Windows
     > The app polls every 5 min by default. A newly paired device will show as unknown until the first poll completes. If a device still reports nothing after several refreshes, it likely doesn't expose battery via any API Windows can read — enable **Hide devices with unknown battery level** in Settings to suppress it from the UI.
 
+- **Apple Magic device works but shows no battery**
+  - Check whether another driver sits on the device's HID stack: `pnputil /enum-devices /instanceid "<device instance id>" /stack`
+  - Look for an `Apple` line in `log.txt` that says *no battery*
+    > Magic Mouse, Keyboard and Trackpad report their battery on a separate vendor-defined HID collection. A filter driver can replace the device's report descriptor and remove that collection, while pointing and typing keep working. Apple's Boot Camp `applewirelessmouse` driver does this. The log line then says *0 vendor-defined*. Remove the filter driver to get the battery reading back.
+
 - **Bluetooth Classic device not appearing**
   - Make sure the device is paired in Windows Settings → Bluetooth & devices
   - Make sure the device is currently connected (powered on)

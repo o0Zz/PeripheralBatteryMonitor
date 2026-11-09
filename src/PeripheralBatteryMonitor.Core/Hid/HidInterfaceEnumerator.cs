@@ -180,6 +180,28 @@ namespace PeripheralBatteryMonitor.Hid
             }
         }
 
+        /// <summary>
+        /// Through a query-only handle, like everything else here, so it answers for a
+        /// collection Windows holds exclusively -- the one case where a caller most needs to
+        /// know whose collection it is. Not read during <see cref="Enumerate"/>: few callers
+        /// need it, and enumeration runs for every vendor on every tick.
+        /// </summary>
+        public static string ReadSerialNumber(HidInterfaceInfo info)
+        {
+            using (SafeFileHandle handle = HidNative.CreateFile(info.Path, 0,
+                       HidNative.FILE_SHARE_READ | HidNative.FILE_SHARE_WRITE,
+                       IntPtr.Zero, HidNative.OPEN_EXISTING, 0, IntPtr.Zero))
+            {
+                if (handle.IsInvalid)
+                    return "";
+
+                byte[] buffer = new byte[HidNative.STRING_BYTES];
+                if (!HidNative.HidD_GetSerialNumberString(handle, buffer, buffer.Length))
+                    return "";
+                return HidNative.DecodeString(buffer);
+            }
+        }
+
         private static string ReadString(SafeFileHandle handle)
         {
             byte[] buffer = new byte[HidNative.STRING_BYTES];
