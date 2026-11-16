@@ -141,7 +141,7 @@ namespace PeripheralBatteryMonitor.Providers.SteelSeries
             return null;
         }
 
-        private enum Verdict
+        internal enum Verdict
         {
             /// <summary>The frame was a status report and carried a usable level.</summary>
             Level,
@@ -153,7 +153,7 @@ namespace PeripheralBatteryMonitor.Providers.SteelSeries
             NotAStatusFrame,
         }
 
-        private static int? Parse(byte[] reply, int read, NovaModel model, out Verdict verdict)
+        internal static int? Parse(byte[] reply, int read, NovaModel model, out Verdict verdict)
         {
             verdict = Verdict.NotAStatusFrame;
 
@@ -186,7 +186,7 @@ namespace PeripheralBatteryMonitor.Providers.SteelSeries
         /// One entry per product id: the reply layout is not uniform across the range and
         /// neither is the meaning of the level byte.
         /// </summary>
-        private sealed class NovaModel
+        internal sealed class NovaModel
         {
             public readonly ushort ProductId;
 
@@ -261,7 +261,7 @@ namespace PeripheralBatteryMonitor.Providers.SteelSeries
             Nova5(0x2253),          //Arctis Nova 5X
         };
 
-        private static NovaModel ModelFor(ushort productId)
+        internal static NovaModel ModelFor(ushort productId)
         {
             foreach (NovaModel model in Models)
             {

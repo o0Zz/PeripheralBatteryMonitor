@@ -131,7 +131,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         /// already reads a null as "cannot read right now", and the poll after it will time
         /// out with nothing, which is the same answer one frame later.
         /// </summary>
-        private static int? Decode(byte[] reply, int read)
+        internal static int? Decode(byte[] reply, int read)
         {
             bool ours = read > OFFSET_CHARGING_STATE && reply[0] == REPORT_CENTURION;
             Log.WriteHex("Centurion", ours ? "<-" : "<- (ignored)", reply, Math.Min(read, LOG_BYTES));

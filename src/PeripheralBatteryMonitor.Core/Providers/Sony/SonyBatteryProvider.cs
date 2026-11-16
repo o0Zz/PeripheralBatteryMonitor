@@ -277,7 +277,7 @@ namespace PeripheralBatteryMonitor.Providers.Sony
             //Low nibble: capacity in tenths. High nibble: 0 discharging, 1 charging, 2 full;
             //0xA/0xB mean voltage or temperature out of range and 0xF a charging error, where
             //Linux reports 0% -- a tray alarm over a charger fault would be wrong, so no level.
-        private static int? DecodeDualSense(byte status)
+        internal static int? DecodeDualSense(byte status)
         {
             int capacity = status & 0x0F;
             switch (status >> 4)
@@ -294,7 +294,7 @@ namespace PeripheralBatteryMonitor.Providers.Sony
 
             //Low nibble: capacity in tenths, 10 or more meaning full; 11 is "charged" on cable.
             //Bit 4: cable plugged in, where anything above 11 is a charging fault.
-        private static int? DecodeDualShock4(byte status)
+        internal static int? DecodeDualShock4(byte status)
         {
             int capacity = status & 0x0F;
             bool cable = (status & 0x10) != 0;

@@ -138,7 +138,7 @@ namespace PeripheralBatteryMonitor.Providers.Razer
             return null;
         }
 
-        private static byte[] Build(byte transactionId, byte commandClass, byte commandId, byte dataSize)
+        internal static byte[] Build(byte transactionId, byte commandClass, byte commandId, byte dataSize)
         {
             byte[] wire = new byte[WIRE_LENGTH];
             wire[REPORT_ID] = 0;
@@ -152,7 +152,7 @@ namespace PeripheralBatteryMonitor.Providers.Razer
         }
 
         /// <summary>XOR of payload bytes 2..87. Takes the wire buffer, not the payload.</summary>
-        private static byte Checksum(byte[] wire)
+        internal static byte Checksum(byte[] wire)
         {
             byte crc = 0;
             for (int i = CRC_FIRST; i <= CRC_LAST; i++)

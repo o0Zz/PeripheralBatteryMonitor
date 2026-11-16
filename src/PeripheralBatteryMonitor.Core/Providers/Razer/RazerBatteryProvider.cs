@@ -103,7 +103,7 @@ namespace PeripheralBatteryMonitor.Providers.Razer
         /// <summary>
         /// Razer reports the level over the full byte range, not as a percentage: 255 is full.
         /// </summary>
-        private static int? ToPercentage(byte raw, string deviceName)
+        internal static int? ToPercentage(byte raw, string deviceName)
         {
                 //A mouse switched off or out of range answers 0 rather than not answering.
                 //Reporting that as flat would fire the low-battery balloon every poll for a

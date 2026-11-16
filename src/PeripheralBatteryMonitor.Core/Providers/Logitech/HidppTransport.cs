@@ -283,7 +283,7 @@ namespace PeripheralBatteryMonitor.Providers.Logitech
         /// short frame is three parameter bytes in a 20-byte world and a decoder indexing past
         /// them must read zeros, not whatever the buffer held before.
         /// </summary>
-        private static byte[] Normalise(byte[] reply, int read, byte deviceIndex)
+        internal static byte[] Normalise(byte[] reply, int read, byte deviceIndex)
         {
             if (reply[0] == REPORT_LONG && read >= LONG_FRAME_SIZE)
                 return reply;

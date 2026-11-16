@@ -105,7 +105,7 @@ namespace PeripheralBatteryMonitor.Providers
             return containerId != Guid.Empty;
         }
 
-        private static int? AsPercentage(object val)
+        internal static int? AsPercentage(object val)
         {
             if (val == null)
                 return null;

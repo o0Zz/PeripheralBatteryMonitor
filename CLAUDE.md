@@ -27,7 +27,9 @@ dotnet build PeripheralBatteryMonitor.sln -c Release
 # Output: src/PeripheralBatteryMonitor.App/bin/Release/net48/PeripheralBatteryMonitor.exe
 ```
 
-There is no test project and no linter. Validation is by running the produced `.exe` on a Windows machine that has paired BLE devices.
+`tests/PeripheralBatteryMonitor.Core.Tests` (xunit, net48) covers the pure parts only: provider decoders fed hand-written frames, HID path helpers and spec matching. Run it with `dotnet test PeripheralBatteryMonitor.sln -c Release`; CI runs it after the build. Nothing touching a real device or WinRT is tested — that still needs the `.exe` on a machine with the hardware. There is no linter.
+- A decoder becomes testable by going from `private` to `internal`; Core declares `InternalsVisibleTo` for the test assembly. Prefer that over test-only entry points.
+- The decoders log every frame and `Diagnostics.Log` has no switch, so `SilenceLog` sets its private `disabled` latch by reflection from a module initializer. Without it a test run appends to the user's real `%LOCALAPPDATA%` log. Renaming that field fails every test loudly instead of silently writing the file.
 
 ## Target and deployment
 

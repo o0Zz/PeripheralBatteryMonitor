@@ -22,6 +22,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="PeripheralBatteryMonitor.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- WinRT from .NET Framework: Windows.winmd plus the System.Runtime.WindowsRuntime
          facade that carries IAsyncOperation<T>.AsTask(). Both are ExcludeAssets=runtime
          (the old packages.config build said <Private>False</Private>): the facade is part
