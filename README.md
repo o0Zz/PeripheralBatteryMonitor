@@ -13,6 +13,7 @@ Device supported :
  - **Razer** wireless mice (Viper Ultimate, DeathAdder V2/V3/V4 Pro, Basilisk V3 Pro, Orochi V2, ...)
  - **SteelSeries Arctis Nova** wireless headsets (Nova 5/5X, Nova 7/7P/7X and editions)
  - **8BitDo** controllers in DInput mode (Ultimate 2 Wireless, Ultimate 3, Pro 2, Pro 3, SN30 Pro, SF30 Pro)
+ - **PlayStation** controllers over USB or Bluetooth (DualSense, DualSense Edge, DualShock 4)
 
 Features:
  - **Notifications**: Whenever a device drops below 20% a balloon notification fires (once per device, per low-battery transition).

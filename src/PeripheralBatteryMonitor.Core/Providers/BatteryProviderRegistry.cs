@@ -4,6 +4,7 @@ using PeripheralBatteryMonitor.Contracts;
 using PeripheralBatteryMonitor.Providers.EightBitDo;
 using PeripheralBatteryMonitor.Providers.Logitech;
 using PeripheralBatteryMonitor.Providers.Razer;
+using PeripheralBatteryMonitor.Providers.Sony;
 using PeripheralBatteryMonitor.Providers.SteelSeries;
 
 namespace PeripheralBatteryMonitor.Providers
@@ -29,6 +30,7 @@ namespace PeripheralBatteryMonitor.Providers
             Register(() => new SteelSeriesBatteryProvider());     //5. SteelSeries Arctis Nova (USB HID only)
             Register(() => new RazerBatteryProvider());           //6. Razer feature reports (USB HID only)
             Register(() => new EightBitDoBatteryProvider());      //7. 8BitDo DInput input stream (USB HID only)
+            Register(() => new SonyBatteryProvider());            //8. PlayStation input stream (USB HID and Bluetooth Classic)
         }
 
         public static void Register(Func<IBatteryProvider> factory)

@@ -4,6 +4,7 @@ using PeripheralBatteryMonitor.Hid;
 using PeripheralBatteryMonitor.Providers.EightBitDo;
 using PeripheralBatteryMonitor.Providers.Logitech;
 using PeripheralBatteryMonitor.Providers.Razer;
+using PeripheralBatteryMonitor.Providers.Sony;
 using PeripheralBatteryMonitor.Providers.SteelSeries;
 
 namespace PeripheralBatteryMonitor.Providers
@@ -33,6 +34,7 @@ namespace PeripheralBatteryMonitor.Providers
             Register(RazerBatteryProvider.HidSpec);              //Razer wireless mice (matched by the 91-byte feature report)
             Register(EightBitDoBatteryProvider.GamepadHidSpec);  //8BitDo controllers in DInput mode
             Register(EightBitDoBatteryProvider.JoystickHidSpec); //8BitDo controllers in DInput mode, joystick collection
+            Register(SonyBatteryProvider.HidSpec);               //DualSense / DualSense Edge / DualShock 4 on a cable
         }
 
         public static void Register(HidDeviceSpec spec)

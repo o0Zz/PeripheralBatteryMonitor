@@ -111,7 +111,7 @@ Folder-level `CLAUDE.md` files load only when work touches that folder:
 
 - `src/PeripheralBatteryMonitor.App/CLAUDE.md` — DPI, the windows and tray, interface language, crash logging.
 - `src/PeripheralBatteryMonitor.Core/CLAUDE.md` — `Contracts/` and `Hid/`, WinRT bridging, diagnostics internals and the startup snapshot.
-- `src/PeripheralBatteryMonitor.Core/Providers/CLAUDE.md`, plus one per vendor folder (`Apple`, `EightBitDo`, `Logitech`, `Razer`, `SteelSeries`) — the registry and each device protocol.
+- `src/PeripheralBatteryMonitor.Core/Providers/CLAUDE.md`, plus one per vendor folder (`Apple`, `EightBitDo`, `Logitech`, `Razer`, `Sony`, `SteelSeries`) — the registry and each device protocol.
 
 ## Conventions worth preserving
 
